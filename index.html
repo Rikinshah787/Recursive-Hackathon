@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Roadster Flight</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- in-game HUD -->
+    <div id="hud" class="hidden">
+      <div class="hud-tl">
+        <div id="mode-badge" class="badge">DRIVE</div>
+        <div id="assist-badge" class="badge dim">ASSIST ON</div>
+        <div id="cam-badge" class="badge dim">CHASE CAM</div>
+        <div id="clip-rec" class="badge rec hidden"><span class="dot"></span>CLIP <span id="clip-time">00:00</span></div>
+      </div>
+
+      <div class="hud-tc">
+        <div id="objective" class="hidden">
+          <div id="obj-step">STEP 1 / 7</div>
+          <div id="obj-text">Roll out</div>
+          <div id="obj-progress"></div>
+        </div>
+        <div id="timer"></div>
+      </div>
+
+      <div class="hud-tr">
+        <div class="label">SCORE</div>
+        <div id="score">0</div>
+        <div id="pending"></div>
+        <div id="views">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg>
+          <span id="views-count">0</span><small>VIEWS</small>
+        </div>
+      </div>
+
+      <div id="trick-feed"></div>
+      <div id="likes"></div>
+      <div id="toast"></div>
+
+      <div class="hud-bottom">
+        <div class="readout">
+          <div><span id="speed">0</span><small>KM/H</small></div>
+          <div class="sep"></div>
+          <div><span id="alt">0.0</span><small>M ALT</small></div>
+        </div>
+        <div class="gas">
+          <div class="gas-head"><span>THRUST GAS</span><span id="gas-pct">100%</span></div>
+          <div class="gas-bar"><div id="gas-fill"></div></div>
+        </div>
+      </div>
+
+      <div id="marker"><div class="ring"></div><span id="marker-dist"></span></div>
+
+      <div id="help" class="panel hidden">
+        <h3>CONTROLS</h3>
+        <div class="grid">
+          <kbd>W / S</kbd><span>Drive / brake · pitch in the air</span>
+          <kbd>A / D</kbd><span>Steer · turn in the air</span>
+          <kbd>SPACE</kbd><span>Thrusters / climb</span>
+          <kbd>SHIFT</kbd><span>Descend · handbrake</span>
+          <kbd>Q / E</kbd><span>Roll / strafe in the air</span>
+          <kbd>W + S</kbd><span>Burnout (steer for donuts)</span>
+          <kbd>R</kbd><span>Kickflip</span>
+          <kbd>F / B</kbd><span>Front flip / back flip</span>
+          <kbd>C · V</kbd><span>Camera · phone-video frame</span>
+          <kbd>K</kbd><span>Record a clip (saves .webm)</span>
+          <kbd>T · M</kbd><span>Flight assist · mute</span>
+          <kbd>ENTER</kbd><span>Reset · ESC pause · H help</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- stunt title card -->
+    <div id="stunt-card">
+      <div id="card-top">STUNT 1 / 4</div>
+      <div id="card-title">TRUCK KICKFLIP</div>
+      <div id="card-sub"></div>
+    </div>
+
+    <!-- phone video frame (crowd cam) -->
+    <div id="phone" class="hidden">
+      <div class="phone-window">
+        <div class="rec"><span class="dot"></span><span id="rec-time">00:00</span></div>
+        <div class="zoom" id="zoom">1.0x</div>
+        <div class="rail">
+          <div class="rail-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 5 6.4 5c2 0 3.6 1.1 4.6 2.6l1 1.4 1-1.4C14 6.1 15.6 5 17.6 5 21 5 23.1 8.4 21.6 11.8 19.5 16.4 12 21 12 21z"/></svg><span id="rail-likes">0</span></div>
+          <div class="rail-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg><span id="rail-views">0</span></div>
+        </div>
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      </div>
+    </div>
+
+    <div id="countdown"></div>
+    <div id="fade"></div>
+
+    <!-- title -->
+    <div id="title" class="screen">
+      <div class="title-wrap">
+        <div class="eyebrow">ARENA FLIGHT DEMO</div>
+        <h1>ROADSTER<span>FLIGHT</span></h1>
+        <p class="tagline">Drive it. Lift it. Flip it. Land it. Go viral.</p>
+        <div class="menu">
+          <button id="btn-stunt" class="primary"><b>STUNT TOUR <i class="new">NEW</i></b><small>Truck kickflip · Mega Wall launch · C-Loop · donut finale</small></button>
+          <button id="btn-show"><b>LAUNCH SHOW</b><small>The reveal: cone lane, lift-off, rings, flip, landing, burnout, park</small></button>
+          <button id="btn-free"><b>FREE ROAM</b><small>Everything open — rings, ramps, walls, tricks</small></button>
+        </div>
+        <div class="title-foot">
+          <div class="quality">GRAPHICS
+            <select id="quality">
+              <option value="ultra">Ultra</option>
+              <option value="high" selected>High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div id="best"></div>
+        </div>
+        <div id="loading">Building arena…</div>
+      </div>
+    </div>
+
+    <!-- pause -->
+    <div id="pause" class="screen hidden">
+      <div class="panel center">
+        <h2>PAUSED</h2>
+        <div class="menu compact">
+          <button id="btn-resume" class="primary"><b>RESUME</b></button>
+          <button id="btn-restart"><b>RESTART</b></button>
+          <button id="btn-assist"><b id="assist-label">FLIGHT ASSIST: ON</b></button>
+          <button id="btn-cine"><b id="cine-label">SLOW-MO SHOTS: ON</b></button>
+          <button id="btn-music"><b id="music-label">MUSIC: ON</b></button>
+          <button id="btn-quit"><b>QUIT TO TITLE</b></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- results -->
+    <div id="results" class="screen hidden">
+      <div class="panel center results">
+        <div class="eyebrow" id="res-title">SHOW COMPLETE</div>
+        <div id="grade">A</div>
+        <div id="res-views"></div>
+        <div class="res-grid">
+          <span>Time</span><b id="res-time">0</b>
+          <span>Trick score</span><b id="res-tricks">0</b>
+          <span>Time bonus</span><b id="res-bonus">0</b>
+          <span>Total</span><b id="res-total">0</b>
+        </div>
+        <div id="res-best"></div>
+        <div class="menu compact">
+          <button id="btn-retry" class="primary"><b>RUN IT AGAIN</b></button>
+          <button id="btn-tofree"><b>FREE ROAM</b></button>
+          <button id="btn-totitle"><b>TITLE</b></button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

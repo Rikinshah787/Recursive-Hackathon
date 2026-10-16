@@ -1,0 +1,212 @@
+import * as THREE from 'three';
+import { formatTime, formatViews } from './util.js';
+
+const $ = (id) => document.getElementById(id);
+const _v = new THREE.Vector3();
+
+export class HUD {
+  constructor() {
+    this.el = {
+      hud: $('hud'), mode: $('mode-badge'), assist: $('assist-badge'), cam: $('cam-badge'),
+      objective: $('objective'), objStep: $('obj-step'), objText: $('obj-text'), objProgress: $('obj-progress'),
+      timer: $('timer'), score: $('score'), pending: $('pending'), feed: $('trick-feed'), toast: $('toast'),
+      speed: $('speed'), alt: $('alt'), gasFill: $('gas-fill'), gasPct: $('gas-pct'),
+      marker: $('marker'), markerDist: $('marker-dist'), help: $('help'),
+      phone: $('phone'), recTime: $('rec-time'), zoom: $('zoom'), countdown: $('countdown'), fade: $('fade'),
+      views: $('views-count'), card: $('stunt-card'), cardTop: $('card-top'), cardTitle: $('card-title'), cardSub: $('card-sub'),
+      likes: $('likes'), clip: $('clip-rec'), clipTime: $('clip-time'), railViews: $('rail-views'), railLikes: $('rail-likes'),
+    };
+    this.cache = {};
+    this.toastTimer = 0;
+    this.scoreShown = 0;
+    this.viewsShown = 0;
+    this.recent = []; // recent call-outs, also burned into recorded clips
+  }
+
+  setViews(n, dt) {
+    this.viewsShown += (n - this.viewsShown) * Math.min(1, dt * 4);
+    const txt = formatViews(this.viewsShown);
+    this.set('views', this.el.views, txt);
+    this.set('railViews', this.el.railViews, txt);
+    this.set('railLikes', this.el.railLikes, formatViews(this.viewsShown * 0.083));
+  }
+
+  // floating hearts — more for bigger moments
+  likes(n) {
+    const count = Math.min(9, 1 + Math.floor(Math.log10(Math.max(10, n)) - 3));
+    for (let i = 0; i < count; i++) {
+      const h = document.createElement('div');
+      h.className = 'heart';
+      h.style.setProperty('--dx', `${(Math.random() - 0.5) * 70}px`);
+      h.style.setProperty('--hue', `${340 + Math.random() * 30}`);
+      h.style.animationDelay = `${i * 0.09}s`;
+      this.el.likes.appendChild(h);
+      setTimeout(() => h.remove(), 2600 + i * 90);
+    }
+  }
+
+  card(top, title, sub) {
+    const c = this.el.card;
+    if (!top) {
+      c.classList.remove('show');
+      return;
+    }
+    this.el.cardTop.textContent = top;
+    this.el.cardTitle.textContent = title;
+    this.el.cardSub.textContent = sub || '';
+    c.classList.remove('show');
+    void c.offsetWidth;
+    c.classList.add('show');
+  }
+
+  setClip(on, t = 0) {
+    this.el.clip.classList.toggle('hidden', !on);
+    if (on) this.set('clipTime', this.el.clipTime, `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`);
+  }
+
+  set(key, el, value, prop = 'textContent') {
+    if (this.cache[key] === value) return;
+    this.cache[key] = value;
+    el[prop] = value;
+  }
+
+  show(on) {
+    this.el.hud.classList.toggle('hidden', !on);
+  }
+
+  setHelp(on) {
+    this.el.help.classList.toggle('hidden', !on);
+  }
+
+  toggleHelp() {
+    this.el.help.classList.toggle('hidden');
+  }
+
+  setPhone(on) {
+    this.el.phone.classList.toggle('hidden', !on);
+  }
+
+  setMode(text, cls) {
+    this.set('mode', this.el.mode, text);
+    if (this.cache.modeCls !== cls) {
+      this.cache.modeCls = cls;
+      this.el.mode.className = 'badge ' + (cls || '');
+    }
+  }
+
+  setAssist(on) {
+    this.set('assist', this.el.assist, on ? 'ASSIST ON' : 'ASSIST OFF · ACRO');
+  }
+
+  setCamera(label) {
+    this.set('cam', this.el.cam, label);
+  }
+
+  setObjective(step, total, text, progress = '') {
+    if (step == null) {
+      this.el.objective.classList.add('hidden');
+      return;
+    }
+    this.el.objective.classList.remove('hidden');
+    this.set('objStep', this.el.objStep, total ? `STEP ${step} / ${total}` : step);
+    if (this.cache.objText !== text) {
+      this.el.objective.classList.remove('flash');
+      void this.el.objective.offsetWidth;
+      this.el.objective.classList.add('flash');
+    }
+    this.set('objText', this.el.objText, text);
+    this.set('objProgress', this.el.objProgress, progress);
+  }
+
+  setTimer(t) {
+    this.set('timer', this.el.timer, t == null ? '' : formatTime(t));
+  }
+
+  setScore(n, dt) {
+    this.scoreShown += (n - this.scoreShown) * Math.min(1, dt * 8);
+    if (Math.abs(n - this.scoreShown) < 1) this.scoreShown = n;
+    this.set('score', this.el.score, Math.round(this.scoreShown).toLocaleString());
+  }
+
+  setPending(points, combo) {
+    this.set('pending', this.el.pending, points > 0 ? `+${points.toLocaleString()}${combo > 1 ? `  x${combo}` : ''}` : '');
+  }
+
+  setTelemetry(kmh, alt, gas) {
+    this.set('speed', this.el.speed, String(Math.round(kmh)));
+    this.set('alt', this.el.alt, alt.toFixed(1));
+    const pct = Math.round(gas * 100);
+    this.set('gasPct', this.el.gasPct, pct + '%');
+    if (this.cache.gasW !== pct) {
+      this.cache.gasW = pct;
+      this.el.gasFill.style.width = pct + '%';
+      this.el.gasFill.classList.toggle('low', gas < 0.2);
+    }
+  }
+
+  trick(title, sub, kind = '') {
+    const d = document.createElement('div');
+    d.className = 'trick ' + kind;
+    d.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`;
+    this.el.feed.prepend(d);
+    while (this.el.feed.children.length > 3) this.el.feed.lastChild.remove();
+    setTimeout(() => d.remove(), 1900);
+    this.recent.unshift({ title, sub, kind, t: performance.now() });
+    this.recent.length = Math.min(this.recent.length, 3);
+  }
+
+  toast(msg, secs = 2.2) {
+    this.el.toast.textContent = msg;
+    this.el.toast.classList.add('show');
+    this.toastTimer = secs;
+  }
+
+  countdown(text) {
+    this.el.countdown.innerHTML = text ? `<span class="num">${text}</span>` : '';
+  }
+
+  fade(on) {
+    this.el.fade.classList.toggle('on', on);
+  }
+
+  // screen-space objective marker; clamps to the screen edge when off-screen
+  setMarker(worldPos, camera, label) {
+    const m = this.el.marker;
+    if (!worldPos) {
+      if (this.cache.marker !== false) {
+        m.style.display = 'none';
+        this.cache.marker = false;
+      }
+      return;
+    }
+    this.cache.marker = true;
+    m.style.display = 'block';
+    _v.copy(worldPos).project(camera);
+    const behind = _v.z > 1;
+    let x = _v.x, y = _v.y;
+    if (behind) { x = -x; y = -y; }
+    const off = behind || Math.abs(x) > 0.92 || Math.abs(y) > 0.88;
+    if (off) {
+      const s = Math.max(Math.abs(x) / 0.92, Math.abs(y) / 0.85, 1e-3);
+      x /= s; y /= s;
+      if (behind && Math.abs(y) < 0.85) y = -0.85;
+    }
+    const W = window.innerWidth, H = window.innerHeight;
+    m.style.left = ((x * 0.5 + 0.5) * W).toFixed(1) + 'px';
+    m.style.top = ((-y * 0.5 + 0.5) * H).toFixed(1) + 'px';
+    m.classList.toggle('edge', off);
+    this.set('markerDist', this.el.markerDist, label);
+  }
+
+  update(dt, phoneTime, zoom) {
+    if (this.toastTimer > 0) {
+      this.toastTimer -= dt;
+      if (this.toastTimer <= 0) this.el.toast.classList.remove('show');
+    }
+    if (!this.el.phone.classList.contains('hidden')) {
+      const s = Math.floor(phoneTime);
+      this.set('rec', this.el.recTime, `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`);
+      this.set('zoom', this.el.zoom, zoom.toFixed(1) + 'x');
+    }
+  }
+}
