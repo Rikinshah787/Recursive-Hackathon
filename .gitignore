@@ -1,5 +1,17 @@
 node_modules/
 dist/
-.claude/settings.local.json
+*.log
+
+# local secrets
+.env
+.env.local
+.env.*.local
+
+# large reference media (not part of the game)
 *.mp4
+*.mov
 *.zip
+
+# local tooling
+.claude/
+supabase/.temp/

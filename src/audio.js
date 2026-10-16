@@ -1,6 +1,10 @@
 import { clamp } from './util.js';
+import { MusicEngine, MUSIC_BPM, findTrack } from './music.js';
 
-const BPM = 124;
+const BPM = MUSIC_BPM;
+// Overall music level into the master bus. The engine output is mastered to peak just under 1.0;
+// 0.14 puts the drop at about the same RMS as the old synth loop (~ -27 dBFS), under the SFX.
+const MUSIC_LEVEL = 0.14;
 
 export class AudioEngine {
   constructor() {
@@ -8,11 +12,14 @@ export class AudioEngine {
     this.muted = false;
     this.musicOn = true;
     this.startTime = 0;
+    this.musicEngine = null;
+    this._track = null;
   }
 
   init() {
     if (this.ctx) {
       if (this.ctx.state === 'suspended') this.ctx.resume();
+      this._syncTrack(true);
       return;
     }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -23,17 +30,23 @@ export class AudioEngine {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.ratio.value = 4;
+    this.master.connect(comp).connect(ctx.destination);
+
+    // SFX are muffled in slow motion (the music has its own, heavier slow-mo treatment)
     this.slowLP = ctx.createBiquadFilter();
     this.slowLP.type = 'lowpass';
     this.slowLP.frequency.value = 20000;
-    this.master.connect(this.slowLP).connect(comp).connect(ctx.destination);
-
+    this.slowLP.connect(this.master);
     this.sfx = ctx.createGain();
     this.sfx.gain.value = 0.9;
-    this.sfx.connect(this.master);
+    this.sfx.connect(this.slowLP);
+
+    // music: procedural anthem (or a user supplied track) -> music on/off gain -> master
     this.music = ctx.createGain();
-    this.music.gain.value = 0.34;
+    this.music.gain.value = this.musicOn ? 1 : 0;
     this.music.connect(this.master);
+    this.musicEngine = new MusicEngine(ctx, this.music, { level: MUSIC_LEVEL });
+    this.musicEngine.setActive(this.musicOn);
 
     // shared noise buffer
     const len = ctx.sampleRate * 2;
@@ -100,8 +113,65 @@ export class AudioEngine {
     noise().connect(this.crowdF).connect(this.crowdG).connect(this.sfx);
 
     this.startTime = ctx.currentTime + 0.1;
-    this.nextBeat = 0;
     this.scheduler = setInterval(() => this.schedule(), 25);
+    this._setupMusic();
+  }
+
+  // look for public/music/track.mp3|ogg; otherwise start the built-in synth anthem
+  async _setupMusic() {
+    const me = this.musicEngine;
+    let track = null;
+    try {
+      track = await findTrack();
+    } catch {
+      track = null;
+    }
+    if (track) {
+      try {
+        this._attachTrack(track);
+      } catch {
+        this._track = null;
+        me.useExternal(false);
+      }
+    }
+    if (!me.running) {
+      me.start(this.ctx.currentTime + 0.06);
+      this.startTime = me.startTime;
+    }
+  }
+
+  _attachTrack(track) {
+    const el = new Audio();
+    el.src = track.url;
+    el.loop = true;
+    el.preload = 'auto';
+    this.musicEngine.attachTrack(el, track.bpm, track.offset);
+    this._track = { el, pending: false, nextTry: 0 };
+    el.addEventListener('error', () => {
+      // undecodable file: fall back to the synth
+      if (this.musicEngine) this.musicEngine.useExternal(false);
+      this._track = null;
+    });
+    this._syncTrack(true);
+  }
+
+  // keep the <audio> element playing only while the context runs and music is on
+  _syncTrack(force = false) {
+    const tr = this._track;
+    if (!tr || !this.ctx) return;
+    const want = this.musicOn && this.ctx.state === 'running';
+    if (want && tr.el.paused && !tr.pending) {
+      // after a rejected play() (autoplay policy) retry at most every 1.5 s, or on the next gesture
+      if (!force && performance.now() < tr.nextTry) return;
+      tr.pending = true;
+      const done = (ok) => {
+        tr.pending = false;
+        if (!ok) tr.nextTry = performance.now() + 1500;
+      };
+      const p = tr.el.play();
+      if (p && p.then) p.then(() => done(true), () => done(false));
+      else done(true);
+    } else if (!want && !tr.el.paused) tr.el.pause();
   }
 
   setMuted(m) {
@@ -114,6 +184,7 @@ export class AudioEngine {
     if (!this.slowLP) return;
     const f = amount > 0.05 ? 20000 * Math.pow(0.03, amount) : 20000;
     this.slowLP.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.08);
+    if (this.musicEngine) this.musicEngine.setSlowmo(amount);
   }
 
   boom() {
@@ -124,128 +195,27 @@ export class AudioEngine {
 
   setMusic(on) {
     this.musicOn = on;
-    if (this.music) this.music.gain.setTargetAtTime(on ? 0.34 : 0, this.ctx.currentTime, 0.1);
+    if (this.music) this.music.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.1);
+    if (this.musicEngine) this.musicEngine.setActive(on);
+    this._syncTrack(true);
   }
 
   // phase within the current beat, 0..1 (also used to pulse the lights)
   beatPhase(fallbackTime) {
+    if (this.musicEngine && this.musicEngine.running) return this.musicEngine.beatPhase();
     const spb = 60 / BPM;
-    const t = this.ctx ? this.ctx.currentTime - this.startTime : fallbackTime;
+    const t = this.ctx ? this.ctx.currentTime - this.startTime : fallbackTime || 0;
     return ((t / spb) % 1 + 1) % 1;
   }
 
   schedule() {
-    const ctx = this.ctx;
-    const spb = 60 / BPM;
-    while (this.startTime + this.nextBeat * (spb / 4) < ctx.currentTime + 0.12) {
-      const step = this.nextBeat;
-      const t = this.startTime + step * (spb / 4);
-      this.playStep(step, t);
-      this.nextBeat++;
-    }
-  }
-
-  playStep(step, t) {
-    const s = step % 16;
-    const bar = Math.floor(step / 16);
-    const spb = 60 / BPM;
-    if (s % 4 === 0) this.kick(t);
-    if (s % 4 === 2) this.hat(t, 0.05);
-    if (s % 2 === 1) this.hat(t, 0.015);
-    if (s === 4 || s === 12) this.clap(t);
-    // bass line (A minor)
-    const roots = [55, 55, 43.65, 49];
-    const root = roots[Math.floor(bar / 2) % 4];
-    if ([0, 3, 6, 8, 11, 14].includes(s)) this.bass(t, root * (s === 14 ? 2 : 1));
-    // pad every 2 bars
-    if (s === 0 && bar % 2 === 0) this.pad(t, root * 4, spb * 8);
+    if (this.musicEngine) this.musicEngine.schedule(this.ctx.currentTime + 0.12);
   }
 
   env(g, t, a, peak, dec) {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(peak, t + a);
     g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec);
-  }
-
-  kick(t) {
-    const ctx = this.ctx;
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.frequency.setValueAtTime(150, t);
-    o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
-    this.env(g, t, 0.003, 0.9, 0.32);
-    o.connect(g).connect(this.music);
-    o.start(t);
-    o.stop(t + 0.4);
-  }
-
-  hat(t, v) {
-    const ctx = this.ctx;
-    const n = ctx.createBufferSource();
-    n.buffer = this.noiseBuf;
-    const f = ctx.createBiquadFilter();
-    f.type = 'highpass';
-    f.frequency.value = 8000;
-    const g = ctx.createGain();
-    this.env(g, t, 0.002, v, 0.05);
-    n.connect(f).connect(g).connect(this.music);
-    n.start(t, Math.random());
-    n.stop(t + 0.08);
-  }
-
-  clap(t) {
-    const ctx = this.ctx;
-    const n = ctx.createBufferSource();
-    n.buffer = this.noiseBuf;
-    const f = ctx.createBiquadFilter();
-    f.type = 'bandpass';
-    f.frequency.value = 1500;
-    f.Q.value = 0.8;
-    const g = ctx.createGain();
-    this.env(g, t, 0.004, 0.18, 0.16);
-    n.connect(f).connect(g).connect(this.music);
-    n.start(t, Math.random());
-    n.stop(t + 0.25);
-  }
-
-  bass(t, freq) {
-    const ctx = this.ctx;
-    const o = ctx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.value = freq;
-    const f = ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.Q.value = 6;
-    f.frequency.setValueAtTime(900, t);
-    f.frequency.exponentialRampToValueAtTime(120, t + 0.18);
-    const g = ctx.createGain();
-    this.env(g, t, 0.005, 0.22, 0.2);
-    o.connect(f).connect(g).connect(this.music);
-    o.start(t);
-    o.stop(t + 0.3);
-  }
-
-  pad(t, freq, dur) {
-    const ctx = this.ctx;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.045, t + dur * 0.3);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    const f = ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.value = 1400;
-    f.connect(g).connect(this.music);
-    for (const ratio of [1, 1.19, 1.5, 2.0]) {
-      for (const det of [-6, 6]) {
-        const o = ctx.createOscillator();
-        o.type = 'sawtooth';
-        o.frequency.value = freq * ratio;
-        o.detune.value = det;
-        o.connect(f);
-        o.start(t);
-        o.stop(t + dur);
-      }
-    }
   }
 
   update(v, dt) {
@@ -271,7 +241,10 @@ export class AudioEngine {
     set(this.squealF.frequency, 2100 + Math.sin(now * 23) * 200);
     set(this.windG.gain, clamp(sp / 60, 0, 1) * 0.12);
     set(this.windF.frequency, 300 + sp * 20);
-    void dt;
+
+    // music reacts to the driving (intensity, air-time risers, landing impacts, stunt build-ups)
+    if (this.musicEngine && this.ctx.state === 'running') this.musicEngine.react(v, dt);
+    if (this._track) this._syncTrack();
   }
 
   cheer(intensity = 1) {

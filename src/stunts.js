@@ -18,7 +18,7 @@ export const STUNTS = {
     truck: { x: -52, z: 40.7 },
     over: { x: -52, z: 50, hx: 3, hz: 10, top: 4.6 },
     land: { x: -78, z: 50, r: 16 },
-    shot: new THREE.Vector3(-63, 1.3, 31),
+    shot: new THREE.Vector3(-96, 2.2, 64), // past the landing, looking back at the truck broadside
     cannons: [[-72, 36], [-72, 64], [-94, 42], [-94, 58]],
   },
   wall: {
@@ -461,7 +461,7 @@ export class StuntPark {
       m.renderOrder = 1;
       this.root.add(m);
     };
-    make(STUNTS.truck.start, 'KICKFLIP');
+    make(STUNTS.truck.start, 'TRUCK JUMP');
     make(STUNTS.wall.start, 'MEGA WALL');
     make(STUNTS.loop.start, 'C-LOOP');
   }

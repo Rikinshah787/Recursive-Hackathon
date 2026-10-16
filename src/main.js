@@ -15,7 +15,9 @@ import { CameraRig, CAMERA_LABELS } from './camera.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { HUD } from './hud.js';
-import { Game } from './game.js';
+import { Game, LEVELS, loadProgress, isUnlocked } from './game.js';
+import { Online } from './online.js';
+import { renderLevels, renderLeaderboard, renderStars, renderAudience, bindBoardTabs, setSubmitStatus } from './menus.js';
 import { ClipRecorder } from './recorder.js';
 import { makeSmokeTexture, makeGlowTexture, makeBlobShadowTexture } from './textures.js';
 import { rng, clamp, damp, formatViews } from './util.js';
@@ -159,6 +161,8 @@ const input = new Input();
 const audio = new AudioEngine();
 const hud = new HUD();
 const recorder = new ClipRecorder(canvas, audio);
+const online = new Online();
+const $ = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------------ post
 let composer, bloomPass, gradePass;
@@ -233,7 +237,7 @@ const fx = {
     slowTimer = Math.max(slowTimer, dur);
   },
   action(pos, dur) {
-    if (!cinematic) return;
+    if (!cinematic || phoneFrame) return; // the phone view is already the "real footage" look
     rig.action(pos, dur);
     cineTimer = Math.max(cineTimer, dur);
   },
@@ -256,17 +260,37 @@ const showScreen = (name) => {
 const game = new Game({
   vehicle, arena, stunts, hud, audio, rig, fx,
   onFinish: (r) => {
-    lastFinishedMode = r.mode;
-    document.getElementById('res-title').textContent = r.mode === 'stunt' ? 'STUNT TOUR COMPLETE' : 'SHOW COMPLETE';
-    document.getElementById('grade').textContent = r.grade;
-    document.getElementById('res-views').textContent = `▶ ${formatViews(r.views)} VIEWS${r.views > 5e6 ? ' · GONE VIRAL' : ''}`;
-    document.getElementById('res-time').textContent = `${r.time.toFixed(1)} s`;
-    document.getElementById('res-tricks').textContent = r.tricks.toLocaleString();
-    document.getElementById('res-bonus').textContent = r.bonus.toLocaleString();
-    document.getElementById('res-total').textContent = r.total.toLocaleString();
-    document.getElementById('res-best').textContent = r.isBest ? 'NEW BEST!' : `BEST ${r.best.toLocaleString()}`;
-    setTimeout(() => { if (game.state === 'results') { showScreen('results'); hud.show(false); } }, 1800);
+    lastFinishedMode = r.levelId || 'free';
+    lastResult = r;
+    resultSubmitted = false;
+    nextLevelId = r.next || null;
+    online.setStatus({ playing: false, level: null });
+    $('res-title').textContent = r.level ? `LEVEL ${r.level.num} · ${r.level.title} COMPLETE` : 'RUN COMPLETE';
+    $('grade').textContent = r.grade;
+    renderStars($('res-stars'), r.stars || 0);
+    $('res-views').textContent = `▶ ${formatViews(r.views)} VIEWS${r.views > 5e6 ? ' · GONE VIRAL' : ''}`;
+    $('res-time').textContent = `${r.time.toFixed(1)} s`;
+    $('res-tricks').textContent = r.tricks.toLocaleString();
+    $('res-bonus').textContent = r.bonus.toLocaleString();
+    $('res-total').textContent = r.total.toLocaleString();
+    $('res-best').textContent = r.isBest ? 'NEW BEST!' : `BEST ${r.best.toLocaleString()}`;
+    $('btn-next').classList.toggle('hidden', !nextLevelId);
+    // leaderboard side
+    $('res-name').value = online.playerName;
+    $('btn-submit').disabled = false;
+    $('btn-submit').textContent = 'SUBMIT SCORE';
+    setSubmitStatus($('submit-status'), online.enabled ? 'Post your run to the global board' : 'Offline · scores are saved on this device', '');
+    loadResultsBoard(lastFinishedMode);
+    setTimeout(() => {
+      if (game.state === 'results') {
+        showScreen('results');
+        hud.show(false);
+        // replay the star pop-in now that the screen is visible
+        renderStars($('res-stars'), r.stars || 0);
+      }
+    }, 1800);
     updateBest();
+    renderTitleLevels();
   },
 });
 
@@ -274,7 +298,93 @@ let assist = true;
 let phoneFrame = false;
 let phoneTime = 0;
 let paused = false;
-let lastFinishedMode = 'stunt';
+let lastFinishedMode = 'tour';
+let lastResult = null;
+let resultSubmitted = false;
+let nextLevelId = null;
+
+// ------------------------------------------------------------------ online: leaderboard + live audience
+const boardOpts = (extra = {}) => ({ highlight: online.playerName, offline: !online.enabled, ...extra });
+let boardLevel = 'reveal';
+let boardReq = 0;
+let resBoardReq = 0;
+
+async function loadTitleBoard(level) {
+  boardLevel = level;
+  const req = ++boardReq;
+  renderLeaderboard($('board-list'), null);
+  const rows = await online.topScores(level);
+  if (req === boardReq) renderLeaderboard($('board-list'), rows, boardOpts());
+}
+
+async function loadResultsBoard(level) {
+  const req = ++resBoardReq;
+  renderLeaderboard($('res-board'), null);
+  const rows = await online.topScores(level);
+  if (req === resBoardReq) renderLeaderboard($('res-board'), rows, boardOpts());
+}
+
+async function refreshRuns() {
+  const { runs } = await online.stats();
+  $('runs-count').textContent = `${(runs || 0).toLocaleString()} RUN${runs === 1 ? '' : 'S'}`;
+}
+
+const selectBoardTab = bindBoardTabs($('board-tabs'), loadTitleBoard);
+
+function renderTitleLevels() {
+  return renderLevels($('level-grid'), LEVELS, loadProgress(), isUnlocked, (id) => startMode(id));
+}
+
+function refreshTitle() {
+  renderTitleLevels();
+  selectBoardTab(boardLevel);
+  refreshRuns();
+}
+
+online.onAudience((a) => {
+  hud.setAudience(a);
+  renderAudience($('audience'), a);
+});
+if (!online.enabled) $('audience').title = 'Supabase not configured: local leaderboard only';
+
+// realtime score feed: HUD ticker + keep whichever board is on screen fresh
+let feedRefresh = 0;
+online.onFeed((f) => {
+  hud.feed(f);
+  clearTimeout(feedRefresh);
+  feedRefresh = setTimeout(() => {
+    refreshRuns();
+    if (!screens.title.classList.contains('hidden') && f.level === boardLevel) loadTitleBoard(boardLevel);
+    if (!screens.results.classList.contains('hidden') && f.level === lastFinishedMode) loadResultsBoard(lastFinishedMode);
+  }, 400);
+});
+online.connect();
+online.setStatus({ playing: false, level: null });
+
+async function submitResult() {
+  const r = lastResult;
+  const btn = $('btn-submit');
+  const status = $('submit-status');
+  if (!r || resultSubmitted || btn.disabled) return;
+  const name = online.setPlayerName($('res-name').value);
+  $('res-name').value = name;
+  btn.disabled = true;
+  setSubmitStatus(status, 'SUBMITTING…', 'busy');
+  const res = await online.submitScore({
+    name, level: r.levelId, score: r.total, views: Math.round(r.views), time: r.time,
+  });
+  if (res.ok) {
+    resultSubmitted = true;
+    btn.textContent = 'SUBMITTED';
+    if (!res.offline) setSubmitStatus(status, res.rank ? `SAVED · #${res.rank} GLOBAL` : 'SAVED TO THE GLOBAL BOARD', 'ok');
+    else setSubmitStatus(status, `SAVED ON THIS DEVICE · #${res.rank ?? '?'} LOCAL`, 'ok');
+  } else {
+    btn.disabled = false;
+    setSubmitStatus(status, `OFFLINE · SAVED LOCALLY (#${res.localRank ?? '?'}) — ${res.error || 'server unreachable'}`, 'err');
+  }
+  loadResultsBoard(r.levelId);
+  refreshRuns();
+}
 
 function updateBest() {
   let best = 0, bestStunt = 0;
@@ -289,8 +399,12 @@ function updateBest() {
 }
 updateBest();
 
+// mode: a LEVELS id or 'free' (legacy 'show' / 'stunt' still work)
 function startMode(mode) {
+  if (mode !== 'free' && !isUnlocked(mode, loadProgress())) return;
   audio.init();
+  // drop focus from the clicked menu button so Space / Enter drive the car instead of re-clicking it
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   showScreen(null);
   paused = false;
   slowTimer = 0;
@@ -300,6 +414,7 @@ function startMode(mode) {
   setTimeout(() => {
     smoke.clear();
     game.start(mode);
+    online.setStatus({ playing: true, level: game.runId });
     rig.setMode(rig.mode === 'spectator' && !phoneFrame ? 'chase' : rig.mode);
     hud.show(true);
     hud.setHelp(true);
@@ -315,6 +430,8 @@ function setPaused(p) {
   paused = p;
   showScreen(p ? 'pause' : null);
   if (audio.ctx) p ? audio.ctx.suspend() : audio.ctx.resume();
+  online.setStatus(p ? { playing: false, level: null } : { playing: true, level: game.runId });
+  if (!p && document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
 }
 
 function toTitle() {
@@ -330,20 +447,25 @@ function toTitle() {
   document.body.classList.remove('phone-mode');
   hud.countdown('');
   stunts.setActive(null);
+  vehicle.gasCap = 1;
   vehicle.reset(new THREE.Vector3(LAYOUT.spawnStage.x, 0, LAYOUT.spawnStage.z), 0.5);
   game.syncMarkers();
+  online.setStatus({ playing: false, level: null });
+  updateBest();
+  refreshTitle();
   showScreen('title');
 }
 
-document.getElementById('btn-stunt').onclick = () => startMode('stunt');
-document.getElementById('btn-show').onclick = () => startMode('show');
 document.getElementById('btn-free').onclick = () => startMode('free');
 document.getElementById('btn-resume').onclick = () => setPaused(false);
-document.getElementById('btn-restart').onclick = () => startMode(game.mode);
+document.getElementById('btn-restart').onclick = () => startMode(game.runId);
 document.getElementById('btn-quit').onclick = toTitle;
 document.getElementById('btn-retry').onclick = () => startMode(lastFinishedMode);
+document.getElementById('btn-next').onclick = () => { if (nextLevelId) startMode(nextLevelId); };
+document.getElementById('btn-submit').onclick = submitResult;
 document.getElementById('btn-tofree').onclick = () => startMode('free');
 document.getElementById('btn-totitle').onclick = toTitle;
+refreshTitle();
 document.getElementById('btn-assist').onclick = () => {
   assist = !assist;
   document.getElementById('assist-label').textContent = `FLIGHT ASSIST: ${assist ? 'ON' : 'OFF'}`;
@@ -364,7 +486,7 @@ const _v = new THREE.Vector3(), _u = new THREE.Vector3(), _w = new THREE.Vector3
 const nozzleLocal = CAR.nozzles.map((n) => n.clone().setY(n.y - CAR.comY));
 const gripPorts = [[0.72, 0.5, 1.1], [-0.72, 0.5, 1.1], [0.72, 0.55, -1.2], [-0.72, 0.55, -1.2]].map(([x, y, z]) => new THREE.Vector3(x, y, z));
 const emitAcc = { jets: [0, 0, 0, 0], ground: 0, tires: [0, 0, 0, 0], rcs: 0, grip: 0 };
-const neutralInput = { throttle: 0, brake: 0, steer: 0, handbrake: false, lift: 0, pitch: 0, roll: 0, assist: true };
+const neutralInput = { throttle: 0, brake: 0, steer: 0, handbrake: false, lift: 0, pitch: 0, roll: 0, assist: true, thrustLevel: 0.6 };
 
 function syncCar(dt, time) {
   const v = vehicle;
@@ -484,6 +606,7 @@ function emitEffects(dt) {
 const clock = new THREE.Clock();
 let frameAvg = 1 / 60, slowTime = 0, elapsed = 0;
 let prevState = game.state;
+let trickQueue = null;
 vehicle.reset(new THREE.Vector3(LAYOUT.spawnStage.x, 0, LAYOUT.spawnStage.z), 0.5);
 
 function frame() {
@@ -539,10 +662,15 @@ function frame() {
     const live = game.controlsLive;
     const ctl = live ? { ...inp, assist } : neutralInput;
     if (live) {
-      if (inp.flip) vehicle.startTrick('flip');
-      if (inp.backflip) vehicle.startTrick('backflip');
-      if (inp.barrel) vehicle.startTrick('roll');
-    }
+      // buffer trick presses briefly so pressing just before take-off still works
+      if (inp.flip) trickQueue = { type: 'flip', t: 0.6 };
+      if (inp.backflip) trickQueue = { type: 'backflip', t: 0.6 };
+      if (inp.barrel) trickQueue = { type: 'roll', t: 0.6 };
+      if (trickQueue) {
+        if (vehicle.startTrick(trickQueue.type)) trickQueue = null;
+        else if ((trickQueue.t -= dt) <= 0) trickQueue = null;
+      }
+    } else trickQueue = null;
     vehicle.lastThrottle = ctl.throttle;
     vehicle.step(ctl, simDt);
     game.update(simDt, inp);
@@ -565,6 +693,7 @@ function frame() {
     const v = vehicle;
     const kmh = v.vel.length() * 3.6;
     hud.setTelemetry(kmh, Math.max(0, v.altitude), v.gas);
+    hud.setThrustLevel(input.thrustLevel);
     let mode = 'DRIVE', cls = '';
     if (v.trick) { mode = 'TRICK'; cls = 'hot'; }
     else if (v.burnout) { mode = 'BURNOUT'; cls = 'hot'; }
@@ -608,4 +737,4 @@ document.getElementById('loading').textContent = 'Ready';
 frame();
 
 // expose for debugging in the console
-window.__game = { game, vehicle, arena, stunts, world, rig, camera, renderer, scene, car, smoke, haze, post: () => ({ composer, bloomPass, gradePass }) };
+window.__game = { game, vehicle, arena, stunts, world, rig, camera, renderer, scene, car, smoke, haze, online, input, post: () => ({ composer, bloomPass, gradePass }) };

@@ -38,6 +38,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg>
           <span id="views-count">0</span><small>VIEWS</small>
         </div>
+        <div id="audience-badge" class="hidden"><i class="live-dot"></i><span id="audience-text">LIVE 0 ONLINE</span></div>
       </div>
 
       <div id="trick-feed"></div>
@@ -51,19 +52,26 @@
           <div><span id="alt">0.0</span><small>M ALT</small></div>
         </div>
         <div class="gas">
-          <div class="gas-head"><span>THRUST GAS</span><span id="gas-pct">100%</span></div>
+          <div class="gas-head"><span>FUEL</span><span id="gas-pct">100%</span></div>
           <div class="gas-bar"><div id="gas-fill"></div></div>
+        </div>
+        <div id="thrust-lever" title="Thrust lever: 1-4 or - / =">
+          <div class="lever-track"><div id="thrust-fill"></div><div id="thrust-knob"></div></div>
+          <div class="lever-read"><span id="thrust-pct">60%</span><small>THRUST</small></div>
         </div>
       </div>
 
       <div id="marker"><div class="ring"></div><span id="marker-dist"></span></div>
 
+      <div class="hud-bl">
+      <div id="feed" aria-live="polite"></div>
       <div id="help" class="panel hidden">
         <h3>CONTROLS</h3>
         <div class="grid">
           <kbd>W / S</kbd><span>Drive / brake · pitch in the air</span>
           <kbd>A / D</kbd><span>Steer · turn in the air</span>
           <kbd>SPACE</kbd><span>Thrusters / climb</span>
+          <kbd>1-4 · - =</kbd><span>Thrust lever (pad D-pad ↑↓)</span>
           <kbd>SHIFT</kbd><span>Descend · handbrake</span>
           <kbd>Q / E</kbd><span>Roll / strafe in the air</span>
           <kbd>W + S</kbd><span>Burnout (steer for donuts)</span>
@@ -74,6 +82,7 @@
           <kbd>T · M</kbd><span>Flight assist · mute</span>
           <kbd>ENTER</kbd><span>Reset · ESC pause · H help</span>
         </div>
+      </div>
       </div>
     </div>
 
@@ -102,13 +111,14 @@
 
     <!-- title -->
     <div id="title" class="screen">
+      <div class="title-layout">
       <div class="title-wrap">
         <div class="eyebrow">ARENA FLIGHT DEMO</div>
         <h1>ROADSTER<span>FLIGHT</span></h1>
         <p class="tagline">Drive it. Lift it. Flip it. Land it. Go viral.</p>
+        <div class="levels-head"><span>LEVELS</span><small>Clear each one to unlock the next</small></div>
+        <div id="level-grid" class="level-grid"></div>
         <div class="menu">
-          <button id="btn-stunt" class="primary"><b>STUNT TOUR <i class="new">NEW</i></b><small>Truck kickflip · Mega Wall launch · C-Loop · donut finale</small></button>
-          <button id="btn-show"><b>LAUNCH SHOW</b><small>The reveal: cone lane, lift-off, rings, flip, landing, burnout, park</small></button>
           <button id="btn-free"><b>FREE ROAM</b><small>Everything open — rings, ramps, walls, tricks</small></button>
         </div>
         <div class="title-foot">
@@ -123,6 +133,25 @@
           <div id="best"></div>
         </div>
         <div id="loading">Building arena…</div>
+      </div>
+
+      <aside id="title-board" class="panel board" aria-label="Leaderboard">
+        <div class="board-head">
+          <h3>LEADERBOARD</h3>
+          <span id="audience" class="live-pill">● 0 ONLINE</span>
+        </div>
+        <div id="board-tabs" class="board-tabs">
+          <button type="button" data-level="reveal" class="active" aria-pressed="true">REVEAL</button>
+          <button type="button" data-level="jump" aria-pressed="false">JUMP</button>
+          <button type="button" data-level="flip" aria-pressed="false">FLIP</button>
+          <button type="button" data-level="wall" aria-pressed="false">WALL</button>
+          <button type="button" data-level="loop" aria-pressed="false">LOOP</button>
+          <button type="button" data-level="finale" aria-pressed="false">FINALE</button>
+          <button type="button" data-level="tour" aria-pressed="false">TOUR</button>
+        </div>
+        <div id="board-list" class="board-list"><div class="lb-empty lb-loading">LOADING…</div></div>
+        <div class="board-foot"><span id="runs-count">0 RUNS</span><span>TOP 10 · ALL TIME</span></div>
+      </aside>
       </div>
     </div>
 
@@ -144,20 +173,33 @@
     <!-- results -->
     <div id="results" class="screen hidden">
       <div class="panel center results">
-        <div class="eyebrow" id="res-title">SHOW COMPLETE</div>
-        <div id="grade">A</div>
-        <div id="res-views"></div>
-        <div class="res-grid">
-          <span>Time</span><b id="res-time">0</b>
-          <span>Trick score</span><b id="res-tricks">0</b>
-          <span>Time bonus</span><b id="res-bonus">0</b>
-          <span>Total</span><b id="res-total">0</b>
+        <div class="res-main">
+          <div class="eyebrow" id="res-title">SHOW COMPLETE</div>
+          <div id="grade">A</div>
+          <div id="res-stars" class="stars big" role="img" aria-label="0 of 3 stars"><span class="star" style="--i:0"><svg class="star-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.85 6.05 6.65.8-4.9 4.58 1.28 6.57L12 17.33 6.12 20.6l1.28-6.57-4.9-4.58 6.65-.8z"/></svg></span><span class="star" style="--i:1"><svg class="star-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.85 6.05 6.65.8-4.9 4.58 1.28 6.57L12 17.33 6.12 20.6l1.28-6.57-4.9-4.58 6.65-.8z"/></svg></span><span class="star" style="--i:2"><svg class="star-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.85 6.05 6.65.8-4.9 4.58 1.28 6.57L12 17.33 6.12 20.6l1.28-6.57-4.9-4.58 6.65-.8z"/></svg></span></div>
+          <div id="res-views"></div>
+          <div class="res-grid">
+            <span>Time</span><b id="res-time">0</b>
+            <span>Trick score</span><b id="res-tricks">0</b>
+            <span>Time bonus</span><b id="res-bonus">0</b>
+            <span>Total</span><b id="res-total">0</b>
+          </div>
+          <div id="res-best"></div>
+          <div class="menu compact">
+            <button id="btn-next" class="primary"><b>NEXT LEVEL</b></button>
+            <button id="btn-retry"><b>RUN IT AGAIN</b></button>
+            <button id="btn-tofree"><b>FREE ROAM</b></button>
+            <button id="btn-totitle"><b>TITLE</b></button>
+          </div>
         </div>
-        <div id="res-best"></div>
-        <div class="menu compact">
-          <button id="btn-retry" class="primary"><b>RUN IT AGAIN</b></button>
-          <button id="btn-tofree"><b>FREE ROAM</b></button>
-          <button id="btn-totitle"><b>TITLE</b></button>
+        <div class="res-side">
+          <h3 class="side-h">LEADERBOARD</h3>
+          <div class="res-submit">
+            <input id="res-name" type="text" maxlength="16" placeholder="PILOT NAME" autocomplete="off" spellcheck="false" aria-label="Pilot name" />
+            <button id="btn-submit" type="button">SUBMIT SCORE</button>
+          </div>
+          <div id="submit-status" aria-live="polite"></div>
+          <div id="res-board" class="board-list"></div>
         </div>
       </div>
     </div>

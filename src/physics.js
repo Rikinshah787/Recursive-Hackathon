@@ -19,6 +19,13 @@ const SPRING_C = 3400;
 const MU = 1.3;
 const ANCHOR_Y = 0.016; // relative to CoM
 
+// Fuel: burn = (BASE_BURN + (1 - BASE_BURN) * thrust/max) per FULL_BURN_S while armed.
+// Full power empties a full tank in ~14 s; hover (~0.42 of max) lasts ~29 s.
+const FULL_BURN_S = 14;
+const BASE_BURN = 0.1; // idle burn while the jets are armed
+const REFUEL_RATE = 0.1; // tank fraction per second, only while parked
+const LEVER_DEFAULT = 0.6;
+
 // Collision probe points (relative to CoM)
 // The bumper points sit higher than the belly (real overhang angles) so the car can ride curved ramps.
 const BODY_POINTS = [
@@ -35,6 +42,8 @@ export class Vehicle {
     this.mass = 1600;
     this.inertia = new THREE.Vector3(2700, 3000, 760);
     this.maxThrust = this.mass * G * 2.4;
+    this.gasCap = 1; // tank size for the current level (0..1); reset() fills to this
+    this.thrustLevel = LEVER_DEFAULT; // mirrors the player's lever for the HUD
 
     this.pos = new THREE.Vector3();
     this.vel = new THREE.Vector3();
@@ -88,7 +97,7 @@ export class Vehicle {
     this.renderQuat.copy(this.quat);
     this.armed = false;
     this.landedTimer = 0;
-    this.gas = 1;
+    this.gas = this.tankCap();
     this.thrust = 0;
     this.thrustCmd = new THREE.Vector3(); // pitch/yaw/roll command for visuals
     this.trick = null;
@@ -113,6 +122,10 @@ export class Vehicle {
     }
     this.events.length = 0;
     this.updateAxes();
+  }
+
+  tankCap() {
+    return Number.isFinite(this.gasCap) ? clamp(this.gasCap, 0, 1) : 1;
   }
 
   updateAxes() {
@@ -342,36 +355,55 @@ export class Vehicle {
     // --- flight state
     const touching = grounded > 0 || bodyContacts > 0;
     const alt = this.altitude;
-    if (inp.lift > 0.1 && this.gas > 0.01) this.armed = true;
+    if (inp.lift > 0.1 && this.gas > 0.02) this.armed = true;
     if (this.armed && grounded >= 3 && inp.lift <= 0 && this.vel.y < 0.6) {
       this.landedTimer += dt;
       if (this.landedTimer > 0.35) this.armed = false;
     } else this.landedTimer = 0;
 
-    // --- thrust (collective)
+    // --- thrust (collective), limited by the player's thrust lever
+    const leverIn = inp.thrustLevel ?? LEVER_DEFAULT;
+    const lever = Number.isFinite(leverIn) ? clamp(leverIn, 0.25, 1) : LEVER_DEFAULT;
+    this.thrustLevel = lever;
+    const available = this.maxThrust * lever;
     let T = 0;
     if (this.armed && this.gas > 0) {
       const upY = Math.max(up.y, 0.25);
       if (inp.assist) {
+        // altitude hold asks for what it needs; a low lever can't deliver it, so you sink
         let vyT = inp.lift > 0 ? inp.lift * 7 : inp.lift * 6.5;
         if (vyT < 0) vyT = Math.max(vyT, -1.2 - alt * 0.75); // auto-flare near the ground
         const aReq = G + 3.6 * (vyT - this.vel.y);
         T = (m * aReq) / upY;
         if (this.trick) T = up.y > 0.25 ? (m * G) / Math.max(up.y, 0.5) : 0;
       } else {
+        // acro: original collective feel (hands-off ~1 g), capped by the lever below
         T = m * G * (1 + inp.lift * 1.3);
       }
-      T = clamp(T, 0, this.maxThrust);
+      T = clamp(T, 0, available);
       if (this.pos.y > 42) T *= clamp((50 - this.pos.y) / 8, 0, 1);
       this.force.addScaledVector(up, T);
-      this.gas = Math.max(0, this.gas - ((T / (m * G)) * dt) / 48);
+      this.gas = Math.max(0, this.gas - ((BASE_BURN + (1 - BASE_BURN) * (T / this.maxThrust)) * dt) / FULL_BURN_S);
       if (inp.assist) {
         // drone-style horizontal drag so tilting gives controllable speed
         this.force.x -= this.vel.x * m * 0.3;
         this.force.z -= this.vel.z * m * 0.3;
       }
-    } else if (grounded >= 3) {
-      this.gas = Math.min(1, this.gas + dt / 7);
+      if (this.gas <= 0) {
+        // tank dry: jets cut out and the car drops
+        this.gas = 0;
+        this.armed = false;
+        this.landedTimer = 0;
+      }
+    } else if (this.armed) {
+      // armed with an empty tank (e.g. a tank-less level): no thrust, disarm
+      this.armed = false;
+      this.landedTimer = 0;
+    }
+    // refuel only when parked: jets off, on all wheels, (almost) stopped
+    if (!this.armed && grounded >= 3 && speed < 1.5) {
+      const cap = this.tankCap();
+      if (this.gas < cap) this.gas = Math.min(cap, this.gas + REFUEL_RATE * dt);
     }
     this.thrust = T / this.maxThrust;
 

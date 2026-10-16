@@ -22,21 +22,105 @@ const STEPS = [
   { id: 'park', text: 'Bring it home — park on the stage' },
 ];
 
-// Stunt Tour: the roadmap from the kickflip + wall-ride videos
-const TOUR = [
-  { id: 'kickflip', group: 'truck', title: 'TRUCK KICKFLIP', text: 'Hit the kicker and KICKFLIP over the truck', hint: 'Full throttle · press R in the air' },
-  { id: 'wallride', group: 'wall', title: 'MEGA WALL', text: 'Floor it straight up the Mega Wall', hint: 'Full throttle · keep it straight' },
-  { id: 'walllaunch', group: 'wall', title: 'MEGA WALL', text: 'Launch off the top & jet-land in the smoke zone', hint: 'SPACE = thrusters · SHIFT = descend' },
-  { id: 'loop', group: 'loop', title: 'THE C-LOOP', text: 'Run the C-Loop upside down & stick the landing', hint: 'Full throttle · SPACE to catch the drop' },
-  { id: 'finale', group: 'finale', title: 'DONUT FINALE', text: 'Burn 3 donuts inside the laser grid', hint: 'Hold W + S and steer' },
-];
-const TOUR_STUNTS = 4;
+// Stunt steps (the roadmap from the kickflip + wall-ride videos). A step's group picks the
+// start line, title card, respawn point, slow-mo shot and cannons.
+const STUNT_STEPS = {
+  kickflip: { id: 'kickflip', group: 'truck', title: 'TRUCK KICKFLIP', text: 'Hit the kicker and KICKFLIP over the truck', hint: 'Full throttle · press R in the air' },
+  truckjump: { id: 'truckjump', group: 'truck', title: 'CAR JUMP', text: 'Hit the kicker, clear the truck & land it clean', hint: 'Full throttle · keep it straight off the kicker' },
+  flipjump: { id: 'flipjump', group: 'truck', title: 'FLIP JUMP', text: 'Flip it over the truck & land clean', hint: 'Full throttle · R kickflip · F front flip · B backflip' },
+  wallride: { id: 'wallride', group: 'wall', title: 'MEGA WALL', text: 'Floor it straight up the Mega Wall', hint: 'Full throttle · keep it straight' },
+  walllaunch: { id: 'walllaunch', group: 'wall', title: 'MEGA WALL', text: 'Launch off the top & jet-land in the smoke zone', hint: 'SPACE = thrusters · SHIFT = descend' },
+  loop: { id: 'loop', group: 'loop', title: 'THE C-LOOP', text: 'Run the C-Loop upside down & stick the landing', hint: 'Full throttle · SPACE to catch the drop' },
+  finale: { id: 'finale', group: 'finale', title: 'DONUT FINALE', text: 'Burn 3 donuts inside the laser grid', hint: 'Hold W + S and steer' },
+};
+const S = STUNT_STEPS;
+const TOUR = [S.kickflip, S.wallride, S.walllaunch, S.loop, S.finale];
+const TRUCK_STEPS = new Set(['kickflip', 'truckjump', 'flipjump']);
+const FLIPS = ['KICKFLIP', 'FRONT FLIP', 'BACKFLIP'];
 
+// ------------------------------------------------------------------ levels
+// stars = total-point thresholds for 1/2/3 stars, fuel = thrust tank size (0..1), par = time-bonus par (s)
+export const LEVELS = [
+  { id: 'reveal', num: 1, title: 'LAUNCH SHOW', subtitle: 'Roll out, lift off, rings, flip & park', kind: 'show', stars: [4000, 7000, 10000], fuel: 1, par: 160, steps: STEPS },
+  { id: 'jump', num: 2, title: 'CAR JUMP', subtitle: 'Hit the kicker & clear the truck', kind: 'stunt', stars: [2000, 3500, 5000], fuel: 0.5, par: 45, steps: [S.truckjump] },
+  { id: 'flip', num: 3, title: 'FLIP JUMP', subtitle: 'Front flip, backflip or kickflip over the truck', kind: 'stunt', stars: [2500, 4500, 6500], fuel: 0.6, par: 45, steps: [S.flipjump] },
+  { id: 'wall', num: 4, title: 'MEGA WALL', subtitle: 'Ride the wall, launch & jet-land', kind: 'stunt', stars: [3000, 5000, 7000], fuel: 0.7, par: 45, steps: [S.wallride, S.walllaunch] },
+  { id: 'loop', num: 5, title: 'THE C-LOOP', subtitle: 'Upside down & stick the landing', kind: 'stunt', stars: [3000, 5000, 7000], fuel: 0.6, par: 45, steps: [S.loop] },
+  { id: 'finale', num: 6, title: 'DONUT FINALE', subtitle: 'Burn 3 donuts in the laser grid', kind: 'stunt', stars: [2000, 3500, 5000], fuel: 0.3, par: 45, steps: [S.finale] },
+  { id: 'tour', num: 7, title: 'STUNT TOUR', subtitle: 'Every stunt, back to back', kind: 'stunt', stars: [9000, 13000, 17000], fuel: 1, par: 220, steps: TOUR },
+];
+// A level entry used where a string is expected (template literal, Supabase filter, JSON payload)
+// turns into its id, so passing result.level instead of result.levelId still works.
+for (const L of LEVELS) {
+  Object.defineProperty(L, 'toString', { value() { return this.id; } });
+  Object.defineProperty(L, 'toJSON', { value() { return this.id; } });
+}
+
+const LEGACY = { show: 'reveal', stunt: 'tour' };
+const LEGACY_BEST = { reveal: 'roadster-best', tour: 'roadster-best-stunt' };
+const PROGRESS_KEY = 'roadster-progress';
+
+export function getLevel(id) {
+  const key = LEGACY[id] || id;
+  return LEVELS.find((l) => l.id === key) || null;
+}
+
+export function nextLevel(id) {
+  const i = LEVELS.findIndex((l) => l.id === (LEGACY[id] || id));
+  return i >= 0 && i < LEVELS.length - 1 ? LEVELS[i + 1] : null;
+}
+
+export function starsFor(level, total) {
+  if (!level) return 0;
+  return level.stars.filter((s) => total >= s).length;
+}
+
+function readNumber(key) {
+  try { return Number(localStorage.getItem(key) || 0) || 0; } catch { return 0; }
+}
+
+export function loadProgress() {
+  let raw = {};
+  try { raw = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); } catch { raw = {}; }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
+  const out = {};
+  for (const L of LEVELS) {
+    const p = raw[L.id];
+    if (p && typeof p === 'object') {
+      out[L.id] = { done: !!p.done, best: Math.max(0, Number(p.best) || 0), stars: Math.max(0, Math.min(3, Number(p.stars) || 0)) };
+    }
+    // players who finished the old Launch Show / Stunt Tour keep that credit
+    const legacy = LEGACY_BEST[L.id] ? readNumber(LEGACY_BEST[L.id]) : 0;
+    if (legacy > 0) {
+      const cur = out[L.id] || { done: false, best: 0, stars: 0 };
+      out[L.id] = { done: true, best: Math.max(cur.best, legacy), stars: Math.max(cur.stars, starsFor(L, legacy)) };
+    }
+  }
+  return out;
+}
+
+export function saveProgress(progress) {
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress)); } catch { /* storage unavailable */ }
+}
+
+export function isUnlocked(levelId, progress = loadProgress()) {
+  if (levelId === 'free') return true;
+  const i = LEVELS.findIndex((l) => l.id === (LEGACY[levelId] || levelId));
+  if (i < 0) return false;
+  if (i === 0) return true;
+  const prev = progress && progress[LEVELS[i - 1].id];
+  return !!(prev && prev.done);
+}
+
+// ------------------------------------------------------------------ game
 export class Game {
   constructor({ vehicle, arena, stunts, hud, audio, rig, fx, onFinish }) {
     Object.assign(this, { vehicle, arena, stunts, hud, audio, rig, fx, onFinish });
     this.mode = 'attract';
     this.state = 'title';
+    this.level = null;
+    this.steps = null;
+    this.runToken = 0;
     this.prevPos = new THREE.Vector3();
     this.lastSafe = { pos: new THREE.Vector3(STAGE.x, 0, STAGE.z), heading: 0 };
     this.resetRun();
@@ -49,6 +133,7 @@ export class Game {
     this.combo = 0;
     this.time = 0;
     this.step = 0;
+    this.pendingNext = 0;
     this.ringIndex = 0;
     this.donuts = 0;
     this.burnYaw = 0;
@@ -62,6 +147,7 @@ export class Game {
     this.failTimer = 0;
     this.ringCooldown = [0, 0, 0];
     this.gasWarned = false;
+    this.gasLowWarned = false;
     this.loopInverted = false;
     this.wallRidden = false;
     this.fading = false;
@@ -75,21 +161,26 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ flow
-  start(mode) {
-    this.mode = mode;
+  // which: a LEVELS id, 'free', or the legacy 'show' / 'stunt'
+  start(which = 'free') {
+    const level = which === 'free' ? null : getLevel(which);
+    this.level = level;
+    this.mode = level ? level.kind : 'free';
+    this.steps = level && level.kind === 'stunt' ? level.steps : null;
+    this.runToken++;
     this.resetRun();
     this.arena.cones.reset();
     this.prevPos.copy(this.vehicle.pos);
     this.rig.snap = true;
-    if (mode === 'stunt') {
+    if (this.mode === 'stunt') {
       this.beginTourStep(0, true);
     } else {
-      const spawn = mode === 'show' ? LAYOUT.spawnStage : LAYOUT.spawnFree;
-      this.vehicle.reset(new THREE.Vector3(spawn.x, 0, spawn.z), spawn.heading);
+      const spawn = this.mode === 'show' ? LAYOUT.spawnStage : LAYOUT.spawnFree;
+      this.resetVehicle(new THREE.Vector3(spawn.x, 0, spawn.z), spawn.heading);
       this.lastSafe.pos.set(spawn.x, 0, spawn.z);
       this.lastSafe.heading = spawn.heading;
       this.stunts.setActive(null);
-      if (mode === 'show') {
+      if (this.mode === 'show') {
         this.state = 'countdown';
         this.countdown = 3.6;
         this.lastCount = null;
@@ -101,34 +192,64 @@ export class Game {
     this.syncMarkers();
   }
 
+  // what to pass back into start() to replay this run ('free' or a level id)
+  get runId() {
+    return this.level ? this.level.id : 'free';
+  }
+
   get controlsLive() {
     return this.state === 'play' && this.crashTimer <= 0 && this.failTimer <= 0;
   }
 
   get tourStep() {
-    return this.mode === 'stunt' ? TOUR[Math.min(this.step, TOUR.length - 1)] : null;
+    return this.mode === 'stunt' && this.steps ? this.steps[Math.min(this.step, this.steps.length - 1)] : null;
+  }
+
+  get stepId() {
+    const s = this.tourStep;
+    return s ? s.id : null;
+  }
+
+  resetVehicle(pos, heading) {
+    this.vehicle.gasCap = this.level ? this.level.fuel : 1;
+    this.vehicle.reset(pos, heading);
   }
 
   groupStart(group) {
     return STUNTS[group].start;
   }
 
+  // distinct stunt groups of the current level, in order
+  stuntGroups() {
+    const steps = this.steps || [];
+    return steps.filter((t, k) => k === 0 || t.group !== steps[k - 1].group);
+  }
+
   beginTourStep(i, first = false) {
-    const prev = first ? null : TOUR[this.step];
+    const steps = this.steps;
+    const prev = first ? null : steps[this.step];
     this.step = i;
-    const st = TOUR[i];
+    const st = steps[i];
     this.stunts.setActive(st.group);
     if (!prev || prev.group !== st.group) {
       const s = this.groupStart(st.group);
-      this.vehicle.reset(new THREE.Vector3(s.x, 0, s.z), s.heading);
+      this.resetVehicle(new THREE.Vector3(s.x, 0, s.z), s.heading);
       this.prevPos.copy(this.vehicle.pos);
       this.rig.snap = true;
       this.resetAir();
       this.loopInverted = false;
+      this.wallRidden = false;
+      this.donuts = 0;
       this.state = 'card';
       this.cardTimer = 2.4;
-      const n = TOUR.slice(0, i + 1).filter((t, k) => k === 0 || t.group !== TOUR[k - 1].group).length;
-      this.fx.card(st.group === 'finale' ? 'FINALE' : `STUNT ${n} / ${TOUR_STUNTS}`, st.title, st.hint);
+      const groups = this.stuntGroups();
+      let top = `LEVEL ${this.level.num}`;
+      if (groups.length > 1) {
+        const n = steps.slice(0, i + 1).filter((t, k) => k === 0 || t.group !== steps[k - 1].group).length;
+        const total = groups.filter((g) => g.group !== 'finale').length;
+        top += st.group === 'finale' ? ' · FINALE' : ` · STUNT ${n} / ${total}`;
+      }
+      this.fx.card(top, st.title, st.hint);
       this.audio.blip(520, 0.2, 0.1, 'triangle');
     }
     this.syncMarkers();
@@ -151,7 +272,8 @@ export class Game {
     this.audio.chime();
     this.arena.kick(0.5);
     if (this.mode === 'stunt') {
-      this.nextTimer = TOUR[this.step + 1] && TOUR[this.step + 1].group === TOUR[this.step].group ? 0.01 : 2.4;
+      const next = this.steps[this.step + 1];
+      this.nextTimer = next && next.group === this.steps[this.step].group ? 0.01 : 2.4;
       this.pendingNext = this.step + 1;
       return;
     }
@@ -164,16 +286,19 @@ export class Game {
   }
 
   stuntComplete(name, pts) {
+    // this step is already done (next one on its way), or the run is crashing / failing and about to respawn
+    if (this.nextTimer > 0 || this.crashTimer > 0 || this.failTimer > 0) return;
     this.award(name, pts, { bank: true, kind: 'good', big: true });
     this.addViews(380000 + Math.random() * 120000);
     this.audio.cheer(1.4);
     this.arena.kick(1.5);
-    this.fx.burst(TOUR[this.step] ? TOUR[this.step].group : null);
+    const st = this.tourStep;
+    this.fx.burst(st ? st.group : null);
     this.advance();
   }
 
   fail(msg, sub = 'try again') {
-    if (this.failTimer > 0 || this.crashTimer > 0) return;
+    if (this.failTimer > 0 || this.crashTimer > 0 || this.nextTimer > 0) return;
     this.hud.trick(msg, sub, 'bad');
     this.failTimer = 1.6;
     this.audio.blip(220, 0.3, 0.12, 'sawtooth');
@@ -200,6 +325,9 @@ export class Game {
     this.pending = 0;
     this.combo = 0;
     this.resetAir();
+    // a crash voids any half-done loop / wall ride so a bounce can't complete it
+    this.loopInverted = false;
+    this.wallRidden = false;
     if (this.mode === 'show') this.score = Math.max(0, this.score - 300);
     this.crashTimer = 2.2;
     this.audio.thud(1.5);
@@ -208,34 +336,65 @@ export class Game {
 
   respawn() {
     if (this.mode === 'stunt') {
-      const s = this.groupStart(TOUR[this.step].group);
-      this.vehicle.reset(new THREE.Vector3(s.x, 0, s.z), s.heading);
+      const s = this.groupStart(this.tourStep.group);
+      this.resetVehicle(new THREE.Vector3(s.x, 0, s.z), s.heading);
     } else {
-      this.vehicle.reset(this.lastSafe.pos, this.lastSafe.heading);
+      this.resetVehicle(this.lastSafe.pos, this.lastSafe.heading);
     }
     this.prevPos.copy(this.vehicle.pos);
     this.rig.snap = true;
     this.loopInverted = false;
+    this.wallRidden = false;
     this.resetAir();
   }
 
   finish() {
+    if (this.state === 'results') return;
     this.state = 'results';
+    const level = this.level;
     const t = this.time;
-    const par = this.mode === 'stunt' ? 220 : 160;
+    const par = level ? level.par : 160;
     const bonus = Math.max(0, Math.round((par - t) * 40));
     const total = this.score + bonus;
-    const grade = total >= 15000 ? 'S' : total >= 11000 ? 'A' : total >= 7000 ? 'B' : 'C';
-    const key = this.mode === 'stunt' ? 'roadster-best-stunt' : 'roadster-best';
+    const stars = starsFor(level, total);
+    const grade = ['C', 'B', 'A', 'S'][stars];
+
     let best = 0;
-    try { best = Number(localStorage.getItem(key) || 0); } catch { /* storage unavailable */ }
-    const isBest = total > best;
-    if (isBest) {
-      try { localStorage.setItem(key, String(total)); } catch { /* storage unavailable */ }
+    let isBest = false;
+    let progress = null;
+    if (level) {
+      progress = loadProgress();
+      const prev = progress[level.id] || { done: false, best: 0, stars: 0 };
+      isBest = total > prev.best;
+      best = Math.max(prev.best, total);
+      progress[level.id] = { done: true, best, stars: Math.max(prev.stars, stars) };
+      saveProgress(progress);
+      // legacy per-mode bests (title screen "BEST" line)
+      const key = LEGACY_BEST[level.id];
+      if (key && total > readNumber(key)) {
+        try { localStorage.setItem(key, String(total)); } catch { /* storage unavailable */ }
+      }
     }
+    const next = level ? nextLevel(level.id) : null;
     this.audio.cheer(1.4);
     this.arena.kick(1.5);
-    this.onFinish({ mode: this.mode, time: t, tricks: this.score, bonus, total, grade, best: Math.max(best, total), isBest, views: this.views });
+    this.onFinish({
+      level, // LEVELS entry (stringifies to its id)
+      levelId: level ? level.id : 'free',
+      mode: this.mode,
+      time: t,
+      par,
+      tricks: this.score,
+      bonus,
+      total,
+      grade,
+      stars,
+      best,
+      isBest,
+      views: this.views,
+      next: next ? next.id : null,
+      progress,
+    });
   }
 
   // ------------------------------------------------------------------ per frame
@@ -281,19 +440,23 @@ export class Game {
     this.time += dt;
     for (let i = 0; i < 3; i++) this.ringCooldown[i] = Math.max(0, this.ringCooldown[i] - dt);
 
-    // next tour step after a success
-    if (this.nextTimer > 0) {
+    // next stunt step after a success
+    if (this.nextTimer > 0 && this.mode === 'stunt') {
       this.nextTimer -= dt;
       if (this.nextTimer <= 0) {
-        if (this.pendingNext >= TOUR.length) {
+        this.nextTimer = 0;
+        if (this.pendingNext >= this.steps.length) {
           this.finish();
           return;
         }
-        const sameGroup = TOUR[this.pendingNext].group === TOUR[this.step].group;
+        const sameGroup = this.steps[this.pendingNext].group === this.steps[this.step].group;
         if (!sameGroup) {
+          const token = this.runToken;
+          const nextStep = this.pendingNext;
           hud.fade(true);
           setTimeout(() => {
-            this.beginTourStep(this.pendingNext);
+            if (token !== this.runToken) return; // a new run started meanwhile
+            if (this.mode === 'stunt') this.beginTourStep(nextStep);
             hud.fade(false);
           }, 450);
         } else this.beginTourStep(this.pendingNext);
@@ -330,8 +493,10 @@ export class Game {
       }
     }
     v.events.length = 0;
+    if (this.state !== 'play') return; // a landing finished the level
 
     const touching = !v.airborne;
+    const stepId = this.stepId;
     // stunt surfaces
     if (touching && v.surface === 'cloop' && v.up.y < -0.45 && !this.loopInverted) {
       this.loopInverted = true;
@@ -340,7 +505,7 @@ export class Game {
     }
     if (touching && v.surface === 'megawall' && v.pos.y > STUNTS.wall.top - 3 && !this.wallRidden) {
       this.wallRidden = true;
-      if (this.mode === 'stunt' && this.tourStep.id === 'wallride') this.stuntComplete('WALL RIDE', 1500);
+      if (stepId === 'wallride') this.stuntComplete('WALL RIDE', 1500);
       else this.award('WALL RIDE', 1000, { bank: true, kind: 'good' });
     }
     if (touching && v.surface === 'ground') this.wallRidden = false;
@@ -377,7 +542,7 @@ export class Game {
         }
       }
       // falling hard from a launch: remind about the thrusters
-      if (!v.armed && v.vel.y < -9 && v.altitude > 8 && !this.thrustHinted) {
+      if (!v.armed && v.vel.y < -9 && v.altitude > 8 && !this.thrustHinted && v.gas > 0.05) {
         this.thrustHinted = true;
         hud.toast('SPACE — FIRE THE THRUSTERS!', 1.6);
       }
@@ -403,13 +568,13 @@ export class Game {
       if (Math.abs(this.burnYaw) > TAU) {
         this.burnYaw -= Math.sign(this.burnYaw) * TAU;
         const inGrid = this.stunts.inZone('finale', v.pos);
-        const counts = this.mode !== 'stunt' || (this.tourStep.id === 'finale' && inGrid);
+        const counts = this.mode !== 'stunt' || (stepId === 'finale' && inGrid);
         if (counts) this.donuts++;
         this.award(inGrid ? 'GRID DONUT' : 'DONUT', inGrid ? 400 : 300, { bank: true });
         this.audio.cheer(0.7);
         this.arena.kick(0.5);
         if (inGrid) this.fx.burst('finale', 0.4);
-        if (this.mode === 'stunt' && this.tourStep.id === 'finale' && this.donuts >= 3) this.stuntComplete('DONUT FINALE', 2000);
+        if (stepId === 'finale' && this.donuts >= 3) this.stuntComplete('DONUT FINALE', 2000);
       }
     } else {
       this.burnYaw *= 1 - Math.min(1, dt * 0.5);
@@ -422,12 +587,20 @@ export class Game {
       else this.award('CONE BOWLING', 50 * hits, { bank: true });
     }
 
-    // gas warning
-    if (v.gas < 0.02 && v.armed && !this.gasWarned) {
-      this.gasWarned = true;
-      hud.toast('THRUST GAS EMPTY — land to refill');
+    // gas warnings (the tank only refills when stopped on the ground)
+    const flying = v.armed || v.airborne;
+    if (v.gas < 0.2 && v.gas >= 0.02 && v.armed && !this.gasLowWarned) {
+      this.gasLowWarned = true;
+      hud.toast('LOW GAS — save some for the landing', 1.6);
     }
-    if (v.gas > 0.3) this.gasWarned = false;
+    if (v.gas < 0.02 && flying && !this.gasWarned) {
+      this.gasWarned = true;
+      hud.toast('GAS EMPTY — stop on the ground to refuel');
+    }
+    if (v.gas > 0.3) {
+      this.gasWarned = false;
+      this.gasLowWarned = false;
+    }
 
     // objectives
     const cur = v.pos;
@@ -443,6 +616,7 @@ export class Game {
       });
     } else if (this.mode === 'show') {
       this.updateShow(dt, cur);
+      if (this.state !== 'play') return;
     }
 
     this.prevPos.copy(cur);
@@ -452,6 +626,7 @@ export class Game {
   updateShow(dt, cur) {
     const v = this.vehicle;
     const s = STEPS[this.step];
+    if (!s) return;
     switch (s.id) {
       case 'gate':
         if (this.prevPos.z < GATE.z && cur.z >= GATE.z && Math.abs(cur.x) < GATE.halfW + 0.5 && v.altitude < 3) {
@@ -494,7 +669,6 @@ export class Game {
   }
 
   onLeave(e) {
-    const v = this.vehicle;
     this.resetAir();
     this.air.from = e.surface;
     if (e.surface === 'kicker' && e.speed > 12) {
@@ -511,7 +685,6 @@ export class Game {
       this.fx.slowmo(1.3);
       this.fx.action(STUNTS.loop.shot, 2.4);
     }
-    void v;
   }
 
   trickDone(name, pts) {
@@ -519,7 +692,7 @@ export class Game {
     this.air.tricks.push(name);
     this.audio.cheer(0.9);
     this.arena.kick(1);
-    if (this.mode === 'show' && STEPS[this.step].id === 'flip') this.advance();
+    if (this.mode === 'show' && STEPS[this.step] && STEPS[this.step].id === 'flip') this.advance();
   }
 
   onLand(e) {
@@ -527,6 +700,11 @@ export class Game {
     const vy = Math.abs(e.vy || 0);
     this.audio.thud(vy / 5);
     this.rig.addShake(Math.min(1, vy / 14));
+    // bounces while a crash / fail is playing out (before the respawn) score nothing
+    if (this.crashTimer > 0 || this.failTimer > 0) {
+      this.resetAir();
+      return;
+    }
     const air = this.air;
     if (e.upright < 0.55 || (!e.onWheels && vy > 6) || vy > 16) {
       if (e.surface === 'cloop' || e.surface === 'megawall') return; // just touching the ramp again
@@ -553,23 +731,32 @@ export class Game {
     this.pending = 0;
     this.combo = 0;
     const kickflipped = air.tricks.includes('KICKFLIP');
-    const tour = this.tourStep;
+    const flipped = air.tricks.some((t) => FLIPS.includes(t));
+    const stepId = this.stepId;
+    const truckStep = TRUCK_STEPS.has(stepId);
 
     // stunt resolutions
     if (air.overTruck) {
-      if (this.mode === 'stunt' && tour.id === 'kickflip') {
+      if (truckStep && e.surface === 'truck') {
+        this.fail('ON THE TRUCK', 'clear it all the way');
+      } else if (stepId === 'kickflip') {
         if (kickflipped) this.stuntComplete('TRUCK KICKFLIP', 2500);
         else this.fail('CLEARED IT!', 'now add the KICKFLIP (R)');
+      } else if (stepId === 'truckjump') {
+        this.stuntComplete('CAR JUMP', 2000);
+      } else if (stepId === 'flipjump') {
+        if (flipped) this.stuntComplete('FLIP JUMP', 2500);
+        else this.fail('CLEARED IT!', 'now add a flip (R, F or B)');
       } else {
         this.award(kickflipped ? 'TRUCK KICKFLIP' : 'TRUCK JUMP', kickflipped ? 2500 : 1200, { bank: true, kind: 'good', big: kickflipped });
         this.fx.burst('truck');
       }
-    } else if (air.kicker && this.mode === 'stunt' && tour.id === 'kickflip') {
+    } else if (air.kicker && truckStep) {
       this.fail('TOO SHORT', 'more speed off the kicker');
     }
     if (air.wallLaunch) {
       const inZone = this.stunts.inZone('wall', v.pos);
-      if (this.mode === 'stunt' && tour.id === 'walllaunch') {
+      if (stepId === 'walllaunch') {
         if (inZone) this.stuntComplete('WALL LAUNCH', 2500);
         else this.fail('MISSED THE ZONE', 'hover back over the smoke zone');
       } else {
@@ -579,7 +766,7 @@ export class Game {
     }
     if (this.loopInverted) {
       this.loopInverted = false;
-      if (this.mode === 'stunt' && tour.id === 'loop') this.stuntComplete('C-LOOP', 2500);
+      if (stepId === 'loop') this.stuntComplete('C-LOOP', 2500);
       else {
         this.award('C-LOOP', 1800, { bank: true, kind: 'good', big: true });
         this.fx.burst('loop');
@@ -588,7 +775,7 @@ export class Game {
 
     // launch show pad landing
     const onPad = Math.hypot(v.pos.x - PAD.x, v.pos.z - PAD.z) < PAD.r + 1.2;
-    if (this.mode === 'show' && STEPS[this.step].id === 'land' && onPad) {
+    if (this.mode === 'show' && STEPS[this.step] && STEPS[this.step].id === 'land' && onPad) {
       this.award('PAD LANDING', 400, { bank: true, kind: 'good' });
       this.advance();
     } else if (this.mode === 'free' && onPad) {
@@ -600,8 +787,8 @@ export class Game {
   objectiveTarget() {
     if (this.state !== 'play') return null;
     if (this.mode === 'stunt') {
-      const id = this.tourStep.id;
-      if (id === 'kickflip') return this.air.kicker ? new THREE.Vector3(STUNTS.truck.land.x, 0.5, STUNTS.truck.land.z) : STUNTS.truck.kicker.origin.clone().setY(1.5);
+      const id = this.stepId;
+      if (TRUCK_STEPS.has(id)) return this.air.kicker ? new THREE.Vector3(STUNTS.truck.land.x, 0.5, STUNTS.truck.land.z) : STUNTS.truck.kicker.origin.clone().setY(1.5);
       if (id === 'wallride') return STUNTS.wall.origin.clone().setY(STUNTS.wall.top);
       if (id === 'walllaunch') return new THREE.Vector3(STUNTS.wall.land.x, 0.5, STUNTS.wall.land.z);
       if (id === 'loop') return STUNTS.loop.origin.clone().setY(2);
@@ -609,7 +796,8 @@ export class Game {
       return null;
     }
     if (this.mode !== 'show') return null;
-    const id = STEPS[this.step].id;
+    const s = STEPS[this.step];
+    const id = s ? s.id : null;
     if (id === 'gate') return new THREE.Vector3(0, 1.5, GATE.z);
     if (id === 'rings') return this.arena.rings[this.ringIndex].pos;
     if (id === 'land' || id === 'donut') return new THREE.Vector3(PAD.x, 0.5, PAD.z);
@@ -620,11 +808,13 @@ export class Game {
   updateHud(dt) {
     const hud = this.hud;
     const v = this.vehicle;
+    const L = this.level;
     hud.setScore(this.score, dt);
     hud.setViews(this.views, dt);
     hud.setPending(Math.round(this.pending), this.combo);
     if (this.mode === 'show') {
-      const s = STEPS[Math.min(this.step, STEPS.length - 1)];
+      const n = Math.min(this.step + 1, STEPS.length);
+      const s = STEPS[n - 1];
       let prog = '';
       if (s.id === 'lift') prog = `ALTITUDE ${Math.max(0, v.altitude).toFixed(0)} / 8 M`;
       if (s.id === 'rings') prog = `${this.ringIndex} / ${this.arena.rings.length} RINGS`;
@@ -633,17 +823,25 @@ export class Game {
       if (s.id === 'gate') prog = 'W to drive · A / D to steer';
       if (s.id === 'park') prog = this.parkTimer > 0 ? 'HOLD IT…' : 'stop inside the bay';
       if (s.id === 'land') prog = 'SHIFT to descend';
-      hud.setObjective(Math.min(this.step + 1, STEPS.length), STEPS.length, s.text, prog);
+      const head = L ? `LEVEL ${L.num} · STEP ${n} / ${STEPS.length}` : `STEP ${n} / ${STEPS.length}`;
+      hud.setObjective(head, 0, s.text, prog);
       hud.setTimer(this.time);
     } else if (this.mode === 'stunt') {
       const s = this.tourStep;
       let prog = s.hint;
       if (s.id === 'wallride') prog = `HEIGHT ${Math.max(0, v.pos.y - 0.5).toFixed(0)} / ${STUNTS.wall.top - 3} M · ${s.hint}`;
       if (s.id === 'finale') prog = `${this.donuts} / 3 DONUTS · ${s.hint}`;
-      hud.setObjective(s.title, 0, s.text, prog);
+      if (TRUCK_STEPS.has(s.id) && v.airborne) {
+        const flipped = this.air.tricks.some((t) => FLIPS.includes(t));
+        if (s.id === 'flipjump' && flipped) prog = this.air.overTruck ? 'FLIPPED & CLEARED · land it clean' : 'FLIP DONE · now clear the truck';
+        else if (this.air.overTruck) prog = s.id === 'truckjump' ? 'CLEARED · land it clean' : s.id === 'flipjump' ? 'CLEARED · FLIP NOW (R, F or B)' : 'CLEARED · KICKFLIP NOW (R)';
+      }
+      const multi = this.stuntGroups().length > 1;
+      const head = L ? `LEVEL ${L.num} · ${multi ? s.title : L.title}` : s.title;
+      hud.setObjective(head, 0, s.text, prog);
       hud.setTimer(this.time);
     } else if (this.mode === 'free') {
-      hud.setObjective('FREE ROAM', 0, 'Rings · truck kickflip · Mega Wall · C-Loop', 'tricks bank when you land clean');
+      hud.setObjective('FREE ROAM', 0, 'Rings · truck jump · Mega Wall · C-Loop', 'tricks bank when you land clean');
       hud.setTimer(null);
     }
   }

@@ -4,6 +4,12 @@ import { formatTime, formatViews } from './util.js';
 const $ = (id) => document.getElementById(id);
 const _v = new THREE.Vector3();
 
+// level ids -> short names for the live score ticker (unknown ids are shown upper-cased)
+const LEVEL_LABELS = {
+  reveal: 'LAUNCH SHOW', jump: 'CAR JUMP', flip: 'FLIP JUMP', wall: 'MEGA WALL',
+  loop: 'C-LOOP', finale: 'DONUT FINALE', tour: 'STUNT TOUR', free: 'FREE ROAM',
+};
+
 export class HUD {
   constructor() {
     this.el = {
@@ -15,12 +21,74 @@ export class HUD {
       phone: $('phone'), recTime: $('rec-time'), zoom: $('zoom'), countdown: $('countdown'), fade: $('fade'),
       views: $('views-count'), card: $('stunt-card'), cardTop: $('card-top'), cardTitle: $('card-title'), cardSub: $('card-sub'),
       likes: $('likes'), clip: $('clip-rec'), clipTime: $('clip-time'), railViews: $('rail-views'), railLikes: $('rail-likes'),
+      audience: $('audience-badge'), audienceText: $('audience-text'), ticker: $('feed'),
+      lever: $('thrust-lever'), leverFill: $('thrust-fill'), leverKnob: $('thrust-knob'), leverPct: $('thrust-pct'),
     };
     this.cache = {};
     this.toastTimer = 0;
     this.scoreShown = 0;
     this.viewsShown = 0;
     this.recent = []; // recent call-outs, also burned into recorded clips
+    this.guardTyping($('res-name'), $('btn-submit'));
+  }
+
+  // keep game keys (Space, R, F, Enter...) from firing while typing a name; Enter submits
+  guardTyping(input, submitBtn) {
+    if (!input) return;
+    const stop = (e) => {
+      e.stopPropagation();
+      if (e.type !== 'keydown') return;
+      if (e.key === 'Enter' && submitBtn && !submitBtn.disabled) {
+        e.preventDefault();
+        submitBtn.click();
+      } else if (e.key === 'Escape') {
+        input.blur();
+      }
+    };
+    input.addEventListener('keydown', stop);
+    input.addEventListener('keyup', stop);
+  }
+
+  // live audience badge under the views counter (hidden until the first call)
+  setAudience({ online = 1, playing } = {}) {
+    const on = Math.max(0, Math.round(Number(online) || 0));
+    let txt = `LIVE ${on.toLocaleString()} ONLINE`;
+    if (playing != null) txt += ` · ${Math.max(0, Math.round(Number(playing) || 0)).toLocaleString()} PLAYING`;
+    if (!this.audienceShown) {
+      this.audienceShown = true;
+      this.el.audience.classList.remove('hidden');
+    }
+    this.set('audience', this.el.audienceText, txt);
+  }
+
+  // bottom-left ticker of new leaderboard scores from anyone; each line fades after ~6 s, max 3
+  feed({ name, level, score } = {}) {
+    const box = this.el.ticker;
+    if (!box) return;
+    const line = document.createElement('div');
+    line.className = 'feed-line';
+    const who = document.createElement('b');
+    who.textContent = String(name ?? '').trim().slice(0, 16) || 'PLAYER';
+    const pts = document.createElement('span');
+    pts.textContent = `${Math.round(Number(score) || 0).toLocaleString()}`;
+    const lv = document.createElement('small');
+    lv.textContent = LEVEL_LABELS[level] || String(level ?? '').toUpperCase();
+    line.append(who, document.createTextNode(' scored '), pts, lv);
+    box.append(line);
+    while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(() => line.remove(), 6200);
+  }
+
+  // vertical thrust lever gauge next to the fuel bar (v = 0..1)
+  setThrustLevel(v) {
+    const pct = Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 100);
+    if (this.cache.lever === pct) return;
+    this.cache.lever = pct;
+    this.el.leverFill.style.height = pct + '%';
+    this.el.leverKnob.style.bottom = pct + '%';
+    this.el.leverPct.textContent = pct + '%';
+    this.el.lever.classList.toggle('max', pct >= 99);
+    this.el.lever.classList.toggle('low', pct <= 30);
   }
 
   setViews(n, dt) {
