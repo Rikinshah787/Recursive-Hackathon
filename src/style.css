@@ -425,3 +425,113 @@ body.phone-mode #likes { right: calc(50vw - 28.125vh + 18px); bottom: 300px; }
   .hud-bl { bottom: 150px; }
   .feed-line { max-width: calc(100vw - 40px); }
 }
+
+/* ---------- beginner levels: keycaps, "do this now" coach, briefing card */
+kbd.cap {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  min-width: 44px; height: 42px; padding: 0 11px; margin: 0 2px;
+  font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: 0.04em; line-height: 1;
+  color: #0b0d16; background: linear-gradient(#ffffff, #dde3ef); border: 0; border-radius: 7px;
+  box-shadow: 0 4px 0 #8b94aa, 0 6px 14px rgba(0, 0, 0, 0.5); text-shadow: none;
+}
+kbd.cap.wide { padding: 0 14px; font-size: 18px; letter-spacing: 0.1em; }
+
+#coach {
+  position: absolute; left: 0; right: 0; bottom: 104px; padding: 0 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+}
+#coach-box {
+  max-width: 100%; padding: 12px 26px 13px;
+  background: rgba(6, 8, 16, 0.84); border: 1px solid rgba(255, 255, 255, 0.22); border-bottom: 3px solid var(--blue);
+  backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+#coach-box.pop { animation: coachpop 0.38s cubic-bezier(0.2, 1.5, 0.4, 1); }
+@keyframes coachpop { 0% { opacity: 0; transform: translateY(14px) scale(0.9); } 100% { opacity: 1; transform: none; } }
+#coach-main {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 10px;
+  font-size: 30px; font-weight: 700; letter-spacing: 0.05em; line-height: 1.2; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+}
+#coach-main kbd.cap { animation: cappress 1.1s ease-in-out infinite; }
+@keyframes cappress {
+  0%, 55%, 100% { transform: translateY(0); box-shadow: 0 4px 0 #8b94aa, 0 6px 14px rgba(0, 0, 0, 0.5); }
+  72% { transform: translateY(3px); box-shadow: 0 1px 0 #8b94aa, 0 2px 6px rgba(0, 0, 0, 0.5); }
+}
+#coach-sub {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 6px;
+  font-size: 17px; font-weight: 600; letter-spacing: 0.08em; color: rgba(238, 242, 248, 0.82);
+}
+#coach-sub kbd.cap, #coach-tip kbd.cap { min-width: 30px; height: 28px; padding: 0 7px; font-size: 15px; border-radius: 5px; box-shadow: 0 3px 0 #8b94aa; }
+#coach-sub kbd.cap.wide, #coach-tip kbd.cap.wide { padding: 0 9px; font-size: 13px; }
+#coach.urgent #coach-box { border-color: #fff; border-bottom-color: #fff; animation: coachurgent 0.5s steps(2) infinite; }
+#coach.urgent #coach-main { font-size: 38px; }
+@keyframes coachurgent { 0% { background: rgba(255, 45, 79, 0.92); } 50% { background: rgba(20, 4, 10, 0.9); } }
+#coach-tip {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 8px; max-width: 100%;
+  padding: 5px 14px; background: rgba(40, 6, 14, 0.85); border-left: 3px solid var(--red);
+  font-size: 17px; font-weight: 600; letter-spacing: 0.06em; color: #ffd0d8;
+}
+#coach-tip::before { content: 'TIP'; margin-right: 4px; font-size: 13px; font-weight: 700; letter-spacing: 0.24em; color: var(--red); }
+/* fix-it fail call-out: solid backing so it reads over the red lasers */
+.trick.fix {
+  margin-bottom: 8px; padding: 6px 22px 8px; color: #fff; font-size: 38px;
+  background: rgba(30, 4, 10, 0.88); border-left: 4px solid var(--red); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+}
+.trick.fix small { font-size: 19px; letter-spacing: 0.1em; color: #ffd0d8; margin-top: 2px; }
+/* the toast sits where the coach is: move it up while coaching */
+body.coaching #toast { bottom: auto; top: 22%; }
+
+#brief { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; pointer-events: none; }
+.brief-card {
+  pointer-events: auto; width: min(640px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  padding: 24px 32px 24px; text-align: center; font-family: var(--display);
+  background: rgba(6, 8, 16, 0.92); border: 1px solid rgba(255, 255, 255, 0.18); border-top: 3px solid var(--red);
+  backdrop-filter: blur(10px); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  animation: briefin 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes briefin { 0% { opacity: 0; transform: translateY(18px) scale(0.96); } 100% { opacity: 1; transform: none; } }
+#brief-top { font-size: 14px; font-weight: 700; letter-spacing: 0.5em; color: var(--red); }
+#brief-title { font-size: 54px; font-weight: 700; letter-spacing: 0.08em; line-height: 1; margin: 6px 0 12px; text-shadow: 0 0 30px rgba(255, 45, 79, 0.5); }
+.brief-goal { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 18px; font-size: 24px; font-weight: 700; letter-spacing: 0.03em; color: #fff; }
+.goal-tag { flex: none; padding: 3px 9px; font-size: 13px; letter-spacing: 0.28em; color: #fff; background: var(--red); }
+#brief-steps { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 10px; text-align: left; }
+#brief-steps li {
+  display: flex; align-items: center; gap: 14px; padding: 9px 14px;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
+  font-size: 23px; font-weight: 600; letter-spacing: 0.03em; color: #fff;
+}
+.step-n { flex: none; width: 34px; height: 34px; display: grid; place-items: center; background: var(--red); color: #fff; font-size: 20px; font-weight: 700; }
+.step-body { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+#brief-go {
+  pointer-events: auto; cursor: pointer; font-family: var(--display); font-size: 30px; font-weight: 700; letter-spacing: 0.24em;
+  color: #fff; background: var(--red); border: 0; padding: 10px 56px 10px 62px;
+  box-shadow: 0 0 30px rgba(255, 45, 79, 0.5); animation: gopulse 1.3s ease-in-out infinite;
+}
+#brief-go:hover { filter: brightness(1.12); }
+#brief-go:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+@keyframes gopulse { 0%, 100% { box-shadow: 0 0 18px rgba(255, 45, 79, 0.4); } 50% { box-shadow: 0 0 40px rgba(255, 45, 79, 0.8); } }
+#brief-keys { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; font-size: 15px; font-weight: 600; letter-spacing: 0.14em; color: var(--dim); }
+#brief-keys kbd.cap { min-width: 30px; height: 28px; padding: 0 8px; font-size: 14px; border-radius: 5px; box-shadow: 0 3px 0 #8b94aa; }
+
+/* title: EASY tag on the beginner level cards */
+.lv-easy { display: inline-block; padding: 1px 5px 1px 7px; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; line-height: 1.3; color: #0b0d16; background: #8fe3a8; }
+
+/* below ~1400px the bottom readouts wrap to two lines (taller): keep the coach clear of them */
+@media (max-width: 1400px) {
+  #coach { bottom: 128px; }
+}
+@media (max-height: 760px) {
+  #brief-title { font-size: 44px; margin-bottom: 8px; }
+  .brief-goal { font-size: 21px; margin-bottom: 12px; }
+  #brief-steps { gap: 7px; margin-bottom: 14px; }
+  #brief-steps li { font-size: 20px; padding: 7px 12px; }
+  #brief-steps kbd.cap { height: 36px; min-width: 38px; font-size: 19px; }
+}
+@media (max-width: 760px) {
+  #coach { bottom: 96px; }
+  #coach-main { font-size: 22px; }
+  #coach.urgent #coach-main { font-size: 28px; }
+  #coach-main kbd.cap { height: 34px; min-width: 36px; font-size: 18px; }
+  #brief-title { font-size: 38px; }
+  .brief-goal { font-size: 19px; }
+  #brief-steps li { font-size: 18px; }
+}

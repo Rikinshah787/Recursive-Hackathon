@@ -45,6 +45,15 @@
       <div id="likes"></div>
       <div id="toast"></div>
 
+      <!-- beginner levels: the single next thing to do -->
+      <div id="coach" class="hidden" aria-live="polite">
+        <div id="coach-tip" class="hidden"></div>
+        <div id="coach-box">
+          <div id="coach-main"></div>
+          <div id="coach-sub" class="hidden"></div>
+        </div>
+      </div>
+
       <div class="hud-bottom">
         <div class="readout">
           <div><span id="speed">0</span><small>KM/H</small></div>
@@ -103,6 +112,18 @@
           <div class="rail-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg><span id="rail-views">0</span></div>
         </div>
         <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      </div>
+    </div>
+
+    <!-- briefing card before levels 1-3 (stays until W / SPACE / ENTER or GO) -->
+    <div id="brief" class="hidden">
+      <div class="brief-card" role="dialog" aria-labelledby="brief-title">
+        <div id="brief-top">LEVEL 1 · EASY</div>
+        <div id="brief-title">LAUNCH SHOW</div>
+        <div class="brief-goal"><span class="goal-tag">GOAL</span><span id="brief-goal"></span></div>
+        <ol id="brief-steps"></ol>
+        <button id="brief-go" type="button">GO</button>
+        <div id="brief-keys"></div>
       </div>
     </div>
 

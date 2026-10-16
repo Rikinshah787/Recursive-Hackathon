@@ -4,6 +4,20 @@ import { formatTime, formatViews } from './util.js';
 const $ = (id) => document.getElementById(id);
 const _v = new THREE.Vector3();
 
+// Fill `el` with text where every [KEY] becomes a keycap. Text only (no HTML).
+function fillKeys(el, text) {
+  el.textContent = '';
+  String(text || '').split(/\[([^\]]+)\]/).forEach((part, i) => {
+    if (!part) return;
+    if (i % 2) {
+      const k = document.createElement('kbd');
+      k.className = part.length > 1 ? 'cap wide' : 'cap';
+      k.textContent = part;
+      el.append(k);
+    } else el.append(document.createTextNode(part));
+  });
+}
+
 // level ids -> short names for the live score ticker (unknown ids are shown upper-cased)
 const LEVEL_LABELS = {
   reveal: 'LAUNCH SHOW', jump: 'CAR JUMP', flip: 'FLIP JUMP', wall: 'MEGA WALL',
@@ -23,7 +37,10 @@ export class HUD {
       likes: $('likes'), clip: $('clip-rec'), clipTime: $('clip-time'), railViews: $('rail-views'), railLikes: $('rail-likes'),
       audience: $('audience-badge'), audienceText: $('audience-text'), ticker: $('feed'),
       lever: $('thrust-lever'), leverFill: $('thrust-fill'), leverKnob: $('thrust-knob'), leverPct: $('thrust-pct'),
+      brief: $('brief'), briefTop: $('brief-top'), briefTitle: $('brief-title'), briefGoal: $('brief-goal'), briefSteps: $('brief-steps'),
+      coach: $('coach'), coachTip: $('coach-tip'), coachBox: $('coach-box'), coachMain: $('coach-main'), coachSub: $('coach-sub'),
     };
+    fillKeys($('brief-keys'), 'or press [W] [SPACE] [ENTER]');
     this.cache = {};
     this.toastTimer = 0;
     this.scoreShown = 0;
@@ -125,6 +142,75 @@ export class HUD {
     c.classList.remove('show');
     void c.offsetWidth;
     c.classList.add('show');
+  }
+
+  // beginner levels: lets the CSS move the toast out of the coach prompt's way
+  setEasy(on) {
+    if (this.cache.easy === on) return;
+    this.cache.easy = on;
+    document.body.classList.toggle('coaching', on);
+  }
+
+  // briefing card before an easy level (level = LEVELS entry with .brief), or null to hide
+  brief(level) {
+    if (this.cache.brief === level) return;
+    this.cache.brief = level;
+    const el = this.el.brief;
+    if (!level) {
+      el.classList.add('hidden');
+      return;
+    }
+    const b = level.brief;
+    this.el.briefTop.textContent = `LEVEL ${level.num} · EASY`;
+    this.el.briefTitle.textContent = level.title;
+    fillKeys(this.el.briefGoal, b.goal);
+    const list = this.el.briefSteps;
+    list.textContent = '';
+    b.steps.slice(0, 3).forEach((text, i) => {
+      const li = document.createElement('li');
+      const n = document.createElement('span');
+      n.className = 'step-n';
+      n.textContent = String(i + 1);
+      const body = document.createElement('span');
+      body.className = 'step-body';
+      fillKeys(body, text);
+      li.append(n, body);
+      list.append(li);
+    });
+    el.classList.remove('hidden');
+  }
+
+  // the big "do this now" prompt: { text, sub?, tip?, urgent? } or null. Touches the DOM only on change.
+  setCoach(p) {
+    const key = p ? `${p.text}|${p.sub || ''}|${p.tip || ''}|${p.urgent ? 1 : 0}` : '';
+    if (this.cache.coach === key) return;
+    this.cache.coach = key;
+    const c = this.el.coach;
+    if (!p) {
+      c.classList.add('hidden');
+      this.cache.coachText = null;
+      return;
+    }
+    c.classList.remove('hidden');
+    c.classList.toggle('urgent', !!p.urgent);
+    if (this.cache.coachText !== p.text) {
+      this.cache.coachText = p.text;
+      fillKeys(this.el.coachMain, p.text);
+      const box = this.el.coachBox;
+      box.classList.remove('pop');
+      void box.offsetWidth;
+      box.classList.add('pop');
+    }
+    if (this.cache.coachSub !== (p.sub || '')) {
+      this.cache.coachSub = p.sub || '';
+      fillKeys(this.el.coachSub, this.cache.coachSub);
+      this.el.coachSub.classList.toggle('hidden', !p.sub);
+    }
+    if (this.cache.coachTip !== (p.tip || '')) {
+      this.cache.coachTip = p.tip || '';
+      fillKeys(this.el.coachTip, this.cache.coachTip);
+      this.el.coachTip.classList.toggle('hidden', !p.tip);
+    }
   }
 
   setClip(on, t = 0) {

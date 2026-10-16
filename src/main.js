@@ -417,16 +417,18 @@ function startMode(mode) {
     online.setStatus({ playing: true, level: game.runId });
     rig.setMode(rig.mode === 'spectator' && !phoneFrame ? 'chase' : rig.mode);
     hud.show(true);
-    hud.setHelp(true);
+    // beginner levels open with a briefing card instead of the controls panel
+    const easy = !!(game.level && game.level.easy);
+    hud.setHelp(!easy);
     hud.setCamera(CAMERA_LABELS[rig.mode]);
     hud.setAssist(assist);
     hud.fade(false);
-    setTimeout(() => hud.setHelp(false), 8000);
+    if (!easy) setTimeout(() => hud.setHelp(false), 8000);
   }, 450);
 }
 
 function setPaused(p) {
-  if (!['play', 'countdown', 'card'].includes(game.state)) return;
+  if (!['play', 'countdown', 'card', 'brief'].includes(game.state)) return;
   paused = p;
   showScreen(p ? 'pause' : null);
   if (audio.ctx) p ? audio.ctx.suspend() : audio.ctx.resume();
@@ -446,6 +448,9 @@ function toTitle() {
   phoneFrame = false;
   document.body.classList.remove('phone-mode');
   hud.countdown('');
+  hud.brief(null);
+  hud.setCoach(null);
+  hud.setEasy(false);
   stunts.setActive(null);
   vehicle.gasCap = 1;
   vehicle.reset(new THREE.Vector3(LAYOUT.spawnStage.x, 0, LAYOUT.spawnStage.z), 0.5);
@@ -465,6 +470,10 @@ document.getElementById('btn-next').onclick = () => { if (nextLevelId) startMode
 document.getElementById('btn-submit').onclick = submitResult;
 document.getElementById('btn-tofree').onclick = () => startMode('free');
 document.getElementById('btn-totitle').onclick = toTitle;
+document.getElementById('brief-go').onclick = (e) => {
+  if (!paused) game.dismissBrief();
+  e.currentTarget.blur(); // so Space / Enter drive the car instead of re-clicking GO
+};
 refreshTitle();
 document.getElementById('btn-assist').onclick = () => {
   assist = !assist;
@@ -689,7 +698,7 @@ function frame() {
   smoke.update(paused ? 0 : simDt, camera);
   haze.update(paused ? 0 : simDt, camera);
 
-  if (game.state === 'play' || game.state === 'countdown') {
+  if (game.state === 'play' || game.state === 'countdown' || game.state === 'brief') {
     const v = vehicle;
     const kmh = v.vel.length() * 3.6;
     hud.setTelemetry(kmh, Math.max(0, v.altitude), v.gas);

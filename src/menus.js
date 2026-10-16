@@ -77,6 +77,7 @@ export function renderLevels(container, levels, progress, isUnlocked, onSelect) 
     body.append(el('b', 'lv-title', lv.title || lv.id), el('small', 'lv-sub', lv.subtitle || ''));
 
     const side = el('span', 'lv-side');
+    if (lv.easy) side.append(el('i', 'lv-easy', 'EASY'));
     if (unlocked) {
       const stars = el('span');
       renderStars(stars, p.stars || 0);
