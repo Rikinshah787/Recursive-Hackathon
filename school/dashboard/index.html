@@ -1,0 +1,1746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stunt School Live</title>
+<meta name="description" content="Live dashboard: a self-improving team of LLM agents learning to fly a jet-powered roadster, on Crusoe Managed Inference.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3 23 L16 5 L29 23 L16 17.5 Z' fill='%23ff2d55'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #07080d;
+  --bg2: #0a0c13;
+  --panel: #0d0f18;
+  --panel2: #11141f;
+  --panel3: #171b29;
+  --line: rgba(255, 255, 255, .07);
+  --line2: rgba(255, 255, 255, .13);
+  --text: #eef1f8;
+  --muted: #9298ae;
+  --dim: #5d6378;
+  --accent: #ff2d55;
+  --accent-soft: rgba(255, 45, 85, .13);
+  --pass: #5dff9b;
+  --fail: #ff6b7a;
+  --amber: #ffb547;
+  --orange: #ff8a3d;
+  --purple: #b48cff;
+  --grey: #8a90a6;
+  --cyan: #5dd6ff;
+  --blue: #7cb4ff;
+  --yellow: #ffe066;
+  --f-head: "Chakra Petch", "Rajdhani", system-ui, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+html { font-size: clamp(14px, 0.42vw + 9.2px, 17.5px); background: var(--bg); }
+* { box-sizing: border-box; }
+body {
+  margin: 0; color: var(--text); font: 400 1rem/1.45 var(--f-body); overflow-x: hidden;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1100px 520px at 8% -8%, rgba(255, 45, 85, .10), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(93, 214, 255, .05), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, .016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .016) 1px, transparent 1px);
+  background-size: auto, auto, 44px 44px, 44px 44px;
+  background-attachment: fixed;
+}
+body.noscroll { overflow: hidden; }
+a { color: inherit; }
+button, select { font: inherit; color: inherit; }
+.wrap { max-width: 1900px; margin: 0 auto; padding: 18px 24px 40px; }
+
+/* ---------- header ---------- */
+.hdr {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "brand status pick" "ledger ledger ledger";
+  gap: 12px 28px; align-items: center; padding: 16px 22px;
+  border: 1px solid var(--line); border-radius: 16px;
+  background: linear-gradient(180deg, rgba(20, 23, 36, .92), rgba(12, 14, 22, .92));
+  position: relative; overflow: hidden;
+}
+.hdr::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, var(--accent), transparent 70%); }
+.brand { grid-area: brand; min-width: 0; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo svg { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 0 8px rgba(255, 45, 85, .55)); }
+h1 { margin: 0; font: 700 2.1rem/1 var(--f-head); letter-spacing: .14em; white-space: nowrap; }
+h1 em { font-style: normal; color: var(--accent); text-shadow: 0 0 18px rgba(255, 45, 85, .45); }
+.tag { margin-top: 8px; color: var(--muted); font-size: 1rem; letter-spacing: .02em; }
+.tag b { color: var(--text); font-weight: 600; }
+.tag2 { margin-top: 3px; font-size: .84rem; color: var(--muted); }
+.crusoe { white-space: nowrap; }
+.crusoe::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--pass); margin: 0 7px 1px 2px; box-shadow: 0 0 8px var(--pass); }
+.hdr-status { grid-area: status; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
+.hdr-pick { grid-area: pick; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; }
+.hdr-pick label { font: 600 .7rem/1 var(--f-head); letter-spacing: .18em; color: var(--dim); text-transform: uppercase; }
+select {
+  background: #0b0d15; border: 1px solid var(--line2); border-radius: 9px; padding: 8px 34px 8px 12px; max-width: min(440px, 100%);
+  font: 500 .92rem/1.2 var(--f-head); letter-spacing: .04em; appearance: none; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 52%, calc(100% - 12px) 52%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+select:focus-visible, button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.conn { font-size: .78rem; color: var(--dim); }
+.conn.err { color: var(--amber); }
+.ledger { grid-area: ledger; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.lstat { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+.lstat .k { font: 600 .7rem/1 var(--f-head); letter-spacing: .16em; color: var(--dim); text-transform: uppercase; }
+.lstat .v { font: 600 1.25rem/1 var(--f-head); }
+.roles { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.role {
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 9px; border: 1px solid var(--line2);
+  background: rgba(255, 255, 255, .025); font-size: .84rem; min-width: 0; max-width: 100%;
+}
+.role .rn { font: 700 .72rem/1 var(--f-head); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.role .rm { font: 500 .8rem/1.2 var(--f-mono); color: var(--text); overflow-wrap: anywhere; }
+.role .rc { font: 600 .82rem/1 var(--f-head); color: var(--muted); white-space: nowrap; }
+.role .arrow { color: var(--dim); }
+.role.zero { opacity: .45; }
+
+.pill { display: inline-flex; align-items: center; gap: 9px; padding: 7px 14px; border-radius: 999px; font: 700 .9rem/1 var(--f-head); letter-spacing: .16em; border: 1px solid var(--line2); white-space: nowrap; }
+.pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--grey); }
+.pill.running { border-color: rgba(255, 45, 85, .65); background: rgba(255, 45, 85, .13); }
+.pill.running .dot { background: var(--accent); animation: pulse 1.4s infinite; }
+.pill.done { color: var(--pass); border-color: rgba(93, 255, 155, .4); background: rgba(93, 255, 155, .07); }
+.pill.done .dot { background: var(--pass); box-shadow: 0 0 10px var(--pass); }
+.pill.other { color: var(--amber); border-color: rgba(255, 181, 71, .4); }
+.pill.other .dot { background: var(--amber); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 45, 85, .75); } 70% { box-shadow: 0 0 0 11px rgba(255, 45, 85, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 45, 85, 0); } }
+.chip { display: inline-flex; align-items: baseline; gap: 7px; padding: 6px 11px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255, 255, 255, .025); white-space: nowrap; }
+.chip .k { font: 600 .68rem/1 var(--f-head); letter-spacing: .16em; color: var(--dim); text-transform: uppercase; }
+.chip .v { font: 600 1.02rem/1 var(--f-head); letter-spacing: .05em; }
+.chip.timer .v { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.chip.warn { border-color: rgba(255, 181, 71, .4); }
+.chip.warn .v { color: var(--amber); }
+.chip.pingchip.hot { border-color: rgba(255, 138, 61, .6); background: rgba(255, 138, 61, .12); }
+.chip.pingchip.hot .v { color: var(--orange); }
+
+/* ---------- pings ---------- */
+.pings {
+  margin-top: 16px; border: 1px solid rgba(255, 138, 61, .6); border-radius: 16px; padding: 16px 20px;
+  background: linear-gradient(90deg, rgba(255, 138, 61, .18), rgba(255, 45, 85, .08)); box-shadow: 0 0 40px rgba(255, 138, 61, .12) inset;
+}
+.pings h2 { margin: 0 0 10px; font: 700 1.25rem/1.1 var(--f-head); letter-spacing: .14em; color: var(--orange); display: flex; align-items: center; gap: 10px; }
+.pings h2 .siren { width: 12px; height: 12px; border-radius: 50%; background: var(--orange); animation: siren 1s infinite alternate; }
+@keyframes siren { from { box-shadow: 0 0 0 0 rgba(255, 138, 61, .9); } to { box-shadow: 0 0 18px 6px rgba(255, 138, 61, .15); } }
+.ping { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 14px; padding: 8px 0; border-top: 1px solid rgba(255, 138, 61, .2); align-items: baseline; }
+.ping .t { font: 500 .82rem/1 var(--f-mono); color: var(--muted); }
+.ping .task { font: 700 1rem/1 var(--f-head); letter-spacing: .06em; }
+.ping .m { overflow-wrap: anywhere; }
+
+/* ---------- layout ---------- */
+.grid { display: grid; gap: 16px; margin-top: 16px; }
+.g-top { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+.g-mid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel {
+  background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 16px;
+  padding: 18px 20px 20px; min-width: 0; position: relative;
+}
+.ph { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.ph-l { min-width: 0; }
+.ph h2 { margin: 0; font: 700 1.02rem/1.1 var(--f-head); letter-spacing: .18em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+.ph h2::before { content: ""; width: 4px; height: 17px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 12px var(--accent); flex: none; }
+.ph-sub { color: var(--muted); font-size: .86rem; margin-top: 5px; max-width: 70ch; }
+.ph-r { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.empty { color: var(--muted); font-size: .92rem; padding: 6px 0; }
+.empty b { color: var(--text); }
+.sub-h { font: 700 .76rem/1 var(--f-head); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sub-h .note { font: 400 .8rem/1.3 var(--f-body); letter-spacing: 0; text-transform: none; color: var(--dim); }
+
+/* badges + bars */
+.b { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; font: 700 .7rem/1.2 var(--f-head); letter-spacing: .13em; text-transform: uppercase; border: 1px solid var(--line2); color: var(--muted); white-space: nowrap; }
+.b.pass { color: var(--pass); border-color: rgba(93, 255, 155, .38); background: rgba(93, 255, 155, .07); }
+.b.fail { color: var(--fail); border-color: rgba(255, 107, 122, .4); background: rgba(255, 107, 122, .07); }
+.b.warn { color: var(--amber); border-color: rgba(255, 181, 71, .5); background: rgba(255, 181, 71, .1); }
+.b.acc { color: #fff; border-color: rgba(255, 45, 85, .55); background: rgba(255, 45, 85, .16); }
+.b.cool { color: var(--cyan); border-color: rgba(93, 214, 255, .35); background: rgba(93, 214, 255, .06); }
+.b.purple { color: var(--purple); border-color: rgba(180, 140, 255, .4); background: rgba(180, 140, 255, .07); }
+.bar { position: relative; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .08); overflow: hidden; min-width: 48px; flex: 1; }
+.bar > i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%); background: var(--c, var(--fail)); border-radius: 3px; }
+
+/* action colours (watchdog) */
+.a-done { --c: var(--pass); }
+.a-continue { --c: var(--grey); }
+.a-replan { --c: var(--purple); }
+.a-revert { --c: var(--amber); }
+.a-stop { --c: var(--fail); }
+.a-escalate { --c: var(--orange); }
+.a-none { --c: #3a3f52; }
+.ac {
+  display: inline-grid; place-items: center; min-width: 27px; height: 27px; padding: 0 6px; border-radius: 7px; border: 0; cursor: pointer;
+  font: 700 .8rem/1 var(--f-mono); color: #07080d; background: var(--c);
+}
+.ac.best { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px #fff; }
+.ac.a-none { color: var(--muted); }
+.act { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; font: 700 .74rem/1.2 var(--f-head); letter-spacing: .13em; color: #07080d; background: var(--c); white-space: nowrap; }
+
+/* ---------- live ---------- */
+.live-list { display: grid; gap: 10px; }
+.lc {
+  position: relative; border: 1px solid rgba(255, 45, 85, .28); border-radius: 12px; padding: 12px 14px 12px; overflow: hidden;
+  background: linear-gradient(90deg, rgba(255, 45, 85, .08), rgba(255, 255, 255, .015) 60%);
+}
+.lc::before { content: ""; position: absolute; left: -40%; top: 0; height: 2px; width: 40%; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: scan 2.4s linear infinite; }
+@keyframes scan { to { left: 100%; } }
+.lc-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lc-task { font: 700 1.15rem/1 var(--f-head); letter-spacing: .06em; }
+.lc-goal { color: var(--muted); font-size: .84rem; margin: 6px 0 9px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lc-stage { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: .9rem; }
+.spin { width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .2); border-top-color: var(--accent); animation: spin .9s linear infinite; flex: none; display: inline-block; }
+.spin.big { width: 18px; height: 18px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.lc-stage .st { font-weight: 600; }
+.lc-meta { display: flex; align-items: center; gap: 12px; margin-top: 9px; font-size: .8rem; color: var(--muted); flex-wrap: wrap; }
+.lc-meta .bar { max-width: 140px; }
+.lc-ago { margin-left: auto; color: var(--dim); font-size: .78rem; }
+.live.idle .ph { margin-bottom: 4px; }
+.landed { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.landed .sub-h { margin-bottom: 6px; }
+.jl { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; gap: 4px 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: .84rem; }
+.jl:last-child { border-bottom: 0; }
+.jl-t { font: 600 .9rem/1.2 var(--f-mono); overflow-wrap: anywhere; }
+.jl-a { color: var(--dim); font-weight: 400; }
+.jl-v { font: 500 .78rem/1.2 var(--f-mono); white-space: nowrap; }
+.jl-v .ok { color: var(--pass); } .jl-v .no { color: var(--fail); } .jl-v .warnc { color: var(--amber); }
+.jl-ago { color: var(--dim); font-size: .74rem; white-space: nowrap; }
+@media (max-width: 640px) { .jl { grid-template-columns: minmax(0, 1fr) auto auto; } .jl-v { grid-column: 1 / -1; grid-row: 2; } .jl-ago { display: none; } }
+
+/* ---------- hero ---------- */
+.story { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin: 2px 0 12px; }
+.story .big { font: 700 1.9rem/1.05 var(--f-head); letter-spacing: .02em; }
+.story .big .up { color: var(--pass); }
+.story .big .flat { color: var(--muted); }
+.story .big .down { color: var(--fail); }
+.story .small { color: var(--muted); font-size: .92rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend svg { width: 26px; height: 14px; flex: none; }
+.chartbox { position: relative; width: 100%; min-height: 200px; }
+.chartbox svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chartbox .hit { cursor: pointer; }
+.chartbox .hit:hover + .hl, .chartbox .hit:focus + .hl { opacity: 1; }
+.hl { opacity: 0; transition: opacity .12s; pointer-events: none; }
+.pend-ring { animation: pend 1.3s ease-in-out infinite alternate; }
+@keyframes pend { from { opacity: .25; } to { opacity: 1; } }
+.divider { height: 1px; background: var(--line); margin: 18px 0 16px; }
+
+.ba { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.ba-card { border: 1px solid var(--line2); border-radius: 14px; padding: 14px 16px 16px; background: rgba(255, 255, 255, .02); min-width: 0; }
+.ba-card.after { border-color: rgba(255, 45, 85, .55); background: linear-gradient(160deg, rgba(255, 45, 85, .13), rgba(255, 45, 85, .02) 70%); box-shadow: 0 0 36px rgba(255, 45, 85, .1); }
+.ba-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ba-h .t { font: 700 .82rem/1 var(--f-head); letter-spacing: .2em; color: var(--muted); }
+.ba-card.after .ba-h .t { color: #fff; }
+.ba-h .ver { font: 700 1.1rem/1 var(--f-head); }
+.ba-hero { margin: 10px 0 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ba-hero .n { font: 700 4.4rem/0.95 var(--f-head); letter-spacing: -.01em; }
+.ba-card.after .ba-hero .n { color: #fff; text-shadow: 0 0 26px rgba(255, 45, 85, .45); }
+.ba-hero .l { font: 600 .74rem/1.2 var(--f-head); letter-spacing: .16em; color: var(--muted); text-transform: uppercase; }
+.ba-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.ba-stat .v { font: 700 1.55rem/1 var(--f-head); }
+.ba-stat .k { font: 600 .66rem/1.25 var(--f-head); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
+.ba-stat .d { font: 600 .78rem/1 var(--f-head); margin-left: 4px; letter-spacing: .02em; }
+.d.good { color: var(--pass); } .d.bad { color: var(--fail); } .d.same { color: var(--dim); }
+.ba-arrow { display: grid; place-items: center; font: 700 2.2rem/1 var(--f-head); color: var(--accent); text-shadow: 0 0 16px rgba(255, 45, 85, .5); padding: 0 2px; }
+.ba-note { margin-top: 10px; font-size: .84rem; color: var(--muted); }
+.tasks { margin-top: 14px; display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, 1fr); gap: 6px 14px; align-items: center; }
+.tasks .th { font: 700 .68rem/1 var(--f-head); letter-spacing: .16em; color: var(--dim); text-transform: uppercase; padding-bottom: 2px; }
+.tasks .tn { font: 600 .92rem/1.2 var(--f-mono); overflow-wrap: anywhere; }
+.tchips { display: flex; flex-wrap: wrap; gap: 5px; }
+.tchip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 7px; font: 700 .8rem/1 var(--f-head); letter-spacing: .06em; border: 1px solid; }
+.tchip.p { color: var(--pass); border-color: rgba(93, 255, 155, .45); background: rgba(93, 255, 155, .09); }
+.tchip.f { color: var(--fail); border-color: rgba(255, 107, 122, .38); background: rgba(255, 107, 122, .06); }
+.tchip.fd { color: var(--amber); border-color: rgba(255, 181, 71, .55); background: rgba(255, 181, 71, .1); }
+.pending-box { border: 1px dashed var(--line2); border-radius: 14px; padding: 18px; color: var(--muted); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.pending-box .t { font: 700 1.2rem/1.1 var(--f-head); letter-spacing: .12em; color: var(--text); }
+
+/* episode spotlight (single-episode runs) */
+.spot-goal { font: 600 1.45rem/1.3 var(--f-body); margin: 8px 0 16px; max-width: 60ch; overflow-wrap: anywhere; }
+.verdicts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.vbox { border: 1px solid var(--line2); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+.vbox .k { font: 700 .72rem/1 var(--f-head); letter-spacing: .2em; color: var(--muted); text-transform: uppercase; }
+.vbox .v { font: 700 2.6rem/1 var(--f-head); margin-top: 8px; letter-spacing: .04em; }
+.vbox .s { color: var(--muted); font-size: .84rem; margin-top: 6px; }
+.vbox.ok { border-color: rgba(93, 255, 155, .4); } .vbox.ok .v { color: var(--pass); }
+.vbox.no { border-color: rgba(255, 107, 122, .4); } .vbox.no .v { color: var(--fail); }
+.fd-banner { margin-top: 12px; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(255, 181, 71, .55); background: rgba(255, 181, 71, .1); color: var(--amber); font-weight: 600; }
+.timeline { margin-top: 16px; display: grid; gap: 8px; }
+.tl { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, .025); border: 1px solid var(--line); cursor: pointer; }
+.tl:hover { border-color: var(--line2); }
+.tl .r { color: var(--muted); font-size: .88rem; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+/* buttons */
+.btn3d {
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 10px; text-decoration: none; white-space: nowrap;
+  font: 700 .9rem/1 var(--f-head); letter-spacing: .1em; text-transform: uppercase; color: #fff;
+  background: linear-gradient(180deg, #ff4468, #e0163f); border: 1px solid #ff6b86; box-shadow: 0 6px 22px rgba(255, 45, 85, .35);
+}
+.btn3d:hover { filter: brightness(1.1); }
+.btn-ghost { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line2); background: rgba(255, 255, 255, .03); cursor: pointer; font: 600 .86rem/1 var(--f-head); letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
+.btn-ghost:hover { border-color: var(--muted); }
+.mini3d { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 8px; border: 1px solid rgba(255, 45, 85, .55); color: #fff; background: rgba(255, 45, 85, .14); text-decoration: none; font: 700 .74rem/1 var(--f-head); letter-spacing: .1em; white-space: nowrap; }
+.mini3d:hover { background: rgba(255, 45, 85, .3); }
+
+/* ---------- done means done ---------- */
+.mx { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.mx .hd { font: 700 .66rem/1.2 var(--f-head); letter-spacing: .14em; color: var(--dim); text-transform: uppercase; display: flex; align-items: flex-end; padding: 0 4px 2px; }
+.mx .rh { font: 700 .68rem/1.2 var(--f-head); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; display: flex; align-items: center; padding-right: 6px; white-space: nowrap; }
+.cell { border-radius: 11px; padding: 10px 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .02); min-width: 0; }
+.cell .n { font: 700 2.2rem/1 var(--f-head); }
+.cell .l { font-size: .76rem; color: var(--muted); margin-top: 4px; line-height: 1.25; }
+.cell.tp { border-color: rgba(93, 255, 155, .35); background: rgba(93, 255, 155, .06); } .cell.tp .n { color: var(--pass); }
+.cell.fd { border-color: rgba(255, 181, 71, .55); background: rgba(255, 181, 71, .1); } .cell.fd .n { color: var(--amber); }
+.cell.md { border-color: rgba(124, 180, 255, .35); background: rgba(124, 180, 255, .06); } .cell.md .n { color: var(--blue); }
+.cell.tn .n { color: var(--muted); }
+.held { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
+.held .n { font: 700 2rem/1 var(--f-head); }
+.held .l { color: var(--muted); font-size: .88rem; }
+.spark { display: flex; align-items: flex-end; gap: 4px; height: 46px; margin-top: 6px; }
+.spark .sb { flex: 1; max-width: 34px; min-width: 6px; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; border-radius: 3px; background: rgba(255, 255, 255, .04); }
+.spark .sb i { display: block; border-radius: 3px 3px 0 0; background: var(--amber); min-height: 2px; }
+.spark .sb.test i { background: var(--orange); }
+.spark-l { display: flex; justify-content: space-between; font-size: .7rem; color: var(--dim); margin-top: 4px; }
+.wd-bar { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; margin: 4px 0 10px; background: rgba(255, 255, 255, .05); }
+.wd-bar i { display: block; background: var(--c); min-width: 3px; }
+.wd { display: flex; flex-wrap: wrap; gap: 6px; }
+.wd-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 8px; border-radius: 9px; border: 1px solid var(--line2); background: rgba(255, 255, 255, .02); cursor: help; }
+.wd-chip .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); flex: none; }
+.wd-chip .nm { font: 700 .72rem/1 var(--f-head); letter-spacing: .13em; }
+.wd-chip .ct { font: 700 1.05rem/1 var(--f-head); }
+.wd-chip.zero { opacity: .45; }
+.facts { margin-top: 12px; display: grid; gap: 5px; font-size: .84rem; color: var(--muted); }
+.facts b { color: var(--text); font-weight: 600; }
+
+/* ---------- rounds ---------- */
+.round { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; background: rgba(255, 255, 255, .012); overflow: hidden; }
+.round.ghost { border-style: dashed; padding: 12px 14px; color: var(--muted); font-size: .9rem; display: flex; gap: 10px; align-items: center; }
+.rh-btn { width: 100%; display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 11px 14px; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.rh-btn:hover { background: rgba(255, 255, 255, .025); }
+.rh-btn .chev { color: var(--muted); transition: transform .15s; display: inline-block; width: 12px; }
+.round.open .rh-btn .chev { transform: rotate(90deg); }
+.rh-btn .lab { font: 700 1.12rem/1 var(--f-head); letter-spacing: .06em; }
+.rstats { display: flex; gap: 6px 16px; flex-wrap: wrap; margin-left: auto; font-size: .85rem; color: var(--muted); }
+.rstats b { color: var(--text); font: 700 .98rem/1 var(--f-head); margin-right: 3px; }
+.rstats .warnv b { color: var(--amber); }
+.rstats .passv b { color: var(--pass); }
+.eps { border-top: 1px solid var(--line); }
+.ep {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(110px, auto) auto; gap: 8px 16px; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; border-left: 3px solid transparent;
+}
+.ep:last-child { border-bottom: 0; }
+.ep:hover { background: rgba(255, 255, 255, .03); }
+.ep.fd { border-left-color: var(--amber); background: rgba(255, 181, 71, .055); }
+.ep.fd:hover { background: rgba(255, 181, 71, .09); }
+.ep-id { font: 700 1rem/1.1 var(--f-mono); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.ep-goal { color: var(--muted); font-size: .84rem; margin-top: 3px; overflow-wrap: anywhere; }
+.ep-v { display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center; font-size: .8rem; }
+.ep-v > * { justify-self: start; }
+.ep-v .who { font: 700 .64rem/1 var(--f-head); letter-spacing: .16em; color: var(--dim); text-transform: uppercase; }
+.ep-v .refline { display: flex; align-items: center; gap: 7px; min-width: 120px; }
+.ep-att { display: flex; flex-wrap: wrap; gap: 5px; }
+.ep-go { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.ep-go .chev { color: var(--dim); font-size: 1.3rem; line-height: 1; }
+.failed-note { padding: 9px 14px; color: var(--fail); font-size: .84rem; border-top: 1px solid var(--line); }
+
+/* ---------- log ---------- */
+.logp { position: sticky; top: 12px; display: flex; flex-direction: column; max-height: calc(100vh - 24px); }
+.logbox { flex: 1; min-height: 260px; max-height: 640px; overflow-y: auto; overflow-x: hidden; font: 400 .76rem/1.5 var(--f-mono); background: #05060a; border: 1px solid var(--line); border-radius: 10px; padding: 8px 4px 8px 10px; overscroll-behavior: contain; }
+.ll { display: grid; grid-template-columns: auto 5.4em minmax(0, 1fr); gap: 0 8px; padding: 1px 0; }
+.ll .lt { color: var(--dim); }
+.ll .lk { font-weight: 600; color: var(--c, var(--muted)); }
+.ll .lm { color: #cdd3e3; overflow-wrap: anywhere; }
+.ll .lkey { color: var(--muted); }
+.k-round { --c: #fff; } .k-round .lm { color: #fff; font-weight: 600; }
+.k-spec { --c: var(--blue); } .k-auditor { --c: var(--purple); } .k-verifier { --c: var(--cyan); }
+.k-watchdog { --c: var(--amber); } .k-coach { --c: var(--accent); } .k-gate { --c: var(--pass); } .k-gate .lm { color: #fff; }
+.k-eval { --c: var(--yellow); } .k-eval .lm { color: var(--yellow); font-weight: 600; }
+.k-ping { --c: var(--orange); } .k-ping .lm { color: var(--orange); }
+.k-error { --c: var(--fail); } .k-error .lm { color: var(--fail); }
+.k-done { --c: var(--pass); }
+.logfoot { display: flex; justify-content: space-between; font-size: .74rem; color: var(--dim); margin-top: 8px; gap: 10px; }
+.jump { border: 1px solid var(--line2); background: transparent; border-radius: 7px; padding: 3px 8px; cursor: pointer; font-size: .74rem; color: var(--muted); }
+
+/* ---------- playbooks ---------- */
+.pbw { display: grid; grid-template-columns: minmax(200px, 290px) minmax(0, 1fr); gap: 18px; }
+.pbl { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pbi { display: grid; gap: 4px; text-align: left; border: 1px solid var(--line); border-radius: 11px; padding: 9px 12px; background: rgba(255, 255, 255, .015); cursor: pointer; min-width: 0; }
+.pbi:hover { border-color: var(--line2); }
+.pbi.sel { border-color: rgba(255, 45, 85, .65); background: rgba(255, 45, 85, .09); }
+.pbi-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pbi-v { font: 700 1.2rem/1 var(--f-head); margin-right: 4px; }
+.pbi-s { font-size: .78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pbd { min-width: 0; }
+.pbd-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.pbd-h .v { font: 700 2rem/1 var(--f-head); }
+.pbd-meta { color: var(--muted); font-size: .86rem; margin-bottom: 14px; display: flex; gap: 6px 16px; flex-wrap: wrap; align-items: center; }
+.pbd-meta b { color: var(--text); font-weight: 600; }
+.sec { margin-top: 16px; }
+.prose { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .92rem; line-height: 1.5; background: rgba(255, 255, 255, .02); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px; }
+.prose.none { color: var(--dim); font-style: italic; }
+ul.clog { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+ul.clog li { overflow-wrap: anywhere; }
+.ins { display: grid; gap: 5px; }
+.in { display: grid; grid-template-columns: 1.4em minmax(0, 1fr); gap: 8px; padding: 7px 11px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255, 255, 255, .015); overflow-wrap: anywhere; }
+.in .g { font: 700 1rem/1.3 var(--f-mono); color: var(--dim); text-align: center; }
+.in .id { font: 500 .74rem/1.3 var(--f-mono); color: var(--dim); display: block; }
+.in.add { border-color: rgba(93, 255, 155, .35); background: rgba(93, 255, 155, .06); }
+.in.add .g, .in.add .tx { color: var(--pass); }
+.in.del { border-color: rgba(255, 107, 122, .3); background: rgba(255, 107, 122, .045); }
+.in.del .g { color: var(--fail); }
+.in.del .tx { color: var(--fail); text-decoration: line-through; text-decoration-thickness: 1px; opacity: .85; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+/* details + code */
+details.det { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, .012); }
+details.det > summary { cursor: pointer; list-style: none; padding: 9px 12px; font: 600 .82rem/1.2 var(--f-head); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+details.det > summary::-webkit-details-marker { display: none; }
+details.det > summary::before { content: "›"; display: inline-block; transition: transform .15s; font-size: 1.1rem; line-height: 1; }
+details.det[open] > summary::before { transform: rotate(90deg); }
+details.det > summary:hover { color: var(--text); }
+details.det > .body { padding: 0 12px 12px; }
+pre.code { margin: 0; font: 400 .78rem/1.55 var(--f-mono); background: #04050a; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow: auto; max-height: 460px; white-space: pre; tab-size: 2; color: #d3d9ea; max-width: 100%; }
+
+/* ---------- drawer ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(2, 3, 7, .62); backdrop-filter: blur(2px); z-index: 40; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(900px, 100vw); z-index: 50; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  background: var(--bg2); border-left: 1px solid var(--line2); box-shadow: -30px 0 70px rgba(0, 0, 0, .55); animation: slideIn .2s ease-out;
+}
+@keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dr-h { position: sticky; top: 0; z-index: 2; background: rgba(10, 12, 19, .96); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); padding: 16px 22px 14px; }
+.dr-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dr-close { margin-left: auto; width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line2); background: rgba(255, 255, 255, .03); cursor: pointer; font-size: 1.3rem; line-height: 1; }
+.dr-close:hover { border-color: var(--muted); }
+.dr-task { font: 700 1.7rem/1.1 var(--f-head); letter-spacing: .04em; margin-top: 8px; overflow-wrap: anywhere; }
+.dr-goal { color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+.dr-v { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.dr-b { padding: 18px 22px 40px; }
+.dr-sec { margin-bottom: 24px; }
+.dr-sec > h3 { margin: 0 0 4px; font: 700 .95rem/1.1 var(--f-head); letter-spacing: .18em; text-transform: uppercase; display: flex; gap: 10px; align-items: center; }
+.dr-sec > .note { color: var(--dim); font-size: .82rem; margin-bottom: 10px; }
+ol.crit { margin: 6px 0 0; padding-left: 1.4em; display: grid; gap: 5px; }
+ol.crit li { overflow-wrap: anywhere; }
+.audit { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--line); align-items: start; }
+.audit:first-child { border-top: 0; }
+.audit .rn { font: 600 .8rem/1.6 var(--f-head); letter-spacing: .1em; color: var(--muted); white-space: nowrap; }
+.audit ul { margin: 6px 0 0; padding-left: 1.2em; color: var(--muted); font-size: .88rem; display: grid; gap: 3px; }
+.audit ul li { overflow-wrap: anywhere; }
+.att { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; background: rgba(255, 255, 255, .015); scroll-margin-top: 190px; }
+.att.best { border-color: rgba(255, 255, 255, .28); }
+.att-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.att-n { font: 700 1.15rem/1 var(--f-head); letter-spacing: .1em; display: flex; align-items: center; gap: 8px; }
+.att-h .btn3d { margin-left: auto; }
+.fld { display: grid; grid-template-columns: 8.4em minmax(0, 1fr); gap: 4px 12px; padding: 7px 0; border-top: 1px solid var(--line); }
+.fld > .fl { font: 700 .68rem/1.7 var(--f-head); letter-spacing: .15em; text-transform: uppercase; color: var(--dim); }
+.fld > .fv { min-width: 0; overflow-wrap: anywhere; }
+.plan { white-space: pre-wrap; }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.checks li { display: grid; grid-template-columns: 1.3em minmax(0, 1fr); gap: 6px; }
+.checks .ic { font-weight: 700; }
+.checks .ok .ic { color: var(--pass); }
+.checks .no .ic { color: var(--fail); }
+.checks .dt { color: var(--muted); font: 400 .78rem/1.4 var(--f-mono); margin-left: 6px; }
+.cerr { color: var(--fail); font: 500 .82rem/1.4 var(--f-mono); }
+.refrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.refrow .bar { max-width: 260px; }
+.dec { display: grid; gap: 6px; }
+.dec .rs { color: var(--text); }
+.dec .msg { border-left: 3px solid var(--c, var(--grey)); padding: 6px 10px; background: rgba(255, 255, 255, .03); border-radius: 0 8px 8px 0; color: var(--muted); font-size: .88rem; white-space: pre-wrap; }
+.dec .msg b { color: var(--text); font-weight: 600; }
+.fin { display: flex; flex-wrap: wrap; gap: 5px; }
+.fin span { font: 500 .76rem/1 var(--f-mono); padding: 4px 7px; border-radius: 6px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); color: var(--muted); }
+.fin span b { color: var(--text); font-weight: 600; }
+.crash { color: var(--fail); font-weight: 600; }
+
+/* tooltip */
+.tip { position: fixed; z-index: 100; pointer-events: none; max-width: 360px; display: none; background: #161a2a; border: 1px solid var(--line2); border-radius: 9px; padding: 9px 11px; font-size: .82rem; line-height: 1.4; box-shadow: 0 12px 34px rgba(0, 0, 0, .55); overflow-wrap: anywhere; }
+.tip .tt { font: 700 .82rem/1.2 var(--f-head); letter-spacing: .1em; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+.tip .tm { color: var(--muted); }
+
+footer { margin-top: 22px; color: var(--dim); font-size: .8rem; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+footer code { font-family: var(--f-mono); }
+.boot { padding: 60px 20px; text-align: center; color: var(--muted); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1180px) {
+  .g-top, .g-mid { grid-template-columns: minmax(0, 1fr); }
+  .logp { position: relative; top: 0; max-height: none; }
+  .logbox { max-height: 460px; }
+}
+@media (max-width: 900px) {
+  .hdr { grid-template-columns: minmax(0, 1fr); grid-template-areas: "brand" "status" "pick" "ledger"; }
+  .hdr-pick { align-items: stretch; }
+  select { max-width: 100%; width: 100%; }
+  .pbw { grid-template-columns: minmax(0, 1fr); }
+  .pbl { flex-direction: row; flex-wrap: wrap; }
+  .pbi { flex: 1 1 140px; }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .ep { grid-template-columns: minmax(0, 1fr) auto; }
+  .ep-v { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  .ep-att { grid-column: 1 / -1; grid-row: 3; }
+  .ep-go { grid-column: 2; grid-row: 1; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 12px 16px 32px; }
+  .panel { padding: 14px 14px 16px; }
+  .hdr { padding: 14px; }
+  h1 { font-size: 1.7rem; letter-spacing: .1em; }
+  .ba { grid-template-columns: minmax(0, 1fr); }
+  .ba-arrow { transform: rotate(90deg); padding: 0; }
+  .ba-hero .n { font-size: 3.4rem; }
+  .tasks { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tasks .tn, .tasks .th.c0 { grid-column: 1 / -1; }
+  .verdicts { grid-template-columns: minmax(0, 1fr); }
+  .mx .cell .n { font-size: 1.7rem; }
+  .fld { grid-template-columns: minmax(0, 1fr); }
+  .dr-h { padding: 14px 16px 12px; }
+  .dr-b { padding: 14px 16px 32px; }
+  .story .big { font-size: 1.5rem; }
+  .ll { grid-template-columns: auto minmax(0, 1fr); }
+  .ll .lt { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hdr">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 23 L16 5 L29 23 L16 17.5 Z" fill="rgba(255,45,85,.16)" stroke="#ff2d55" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 17.5 L16 27" stroke="#ff2d55" stroke-width="2" stroke-linecap="round" opacity=".6"/></svg>
+        <h1>STUNT <em>SCHOOL</em></h1>
+      </div>
+      <div class="tag"><b>agents that teach themselves to fly</b></div>
+      <div class="tag2"><span class="crusoe">open models on Crusoe Managed Inference</span></div>
+    </div>
+    <div class="hdr-status" id="hdrStatus"></div>
+    <div class="hdr-pick">
+      <label for="runPick">run</label>
+      <select id="runPick" aria-label="Choose a run"></select>
+      <div class="conn" id="conn">connecting…</div>
+    </div>
+    <div class="ledger" id="ledger"></div>
+  </header>
+
+  <section class="pings" id="pings" hidden aria-live="assertive"></section>
+
+  <div class="grid g-top">
+    <section class="panel hero" id="hero"><div class="boot">Loading run…</div></section>
+    <div class="col">
+      <section class="panel live" id="live" aria-live="polite"></section>
+      <section class="panel dmd" id="dmd"></section>
+    </div>
+  </div>
+
+  <div class="grid g-mid">
+    <section class="panel" id="rounds"></section>
+    <section class="panel logp" id="log"></section>
+  </div>
+
+  <section class="panel" id="pb" style="margin-top:16px"></section>
+
+  <footer>
+    <span>Stunt School · Version N+1 (self-improving playbook) + Done Means Done (audited, executable definitions of done)</span>
+    <span id="foot"></span>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden role="dialog" aria-modal="true" aria-label="Episode detail"></aside>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+'use strict';
+/* Stunt School dashboard. Every string that comes from a run (goals, plans, code, model output) is inserted
+   with textContent / createTextNode via h() and s() below; nothing from the data ever goes through innerHTML. */
+
+const RUNS = '/school/runs';
+const $ = (sel, root = document) => root.querySelector(sel);
+
+// ---------- DOM helpers ----------
+function append(el, kids) {
+  for (const k of kids.flat(Infinity)) {
+    if (k == null || k === false || k === '') continue;
+    el.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  }
+  return el;
+}
+function setProps(el, props) {
+  if (!props) return;
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.setAttribute('class', v);
+    else if (k === 'text') el.textContent = String(v);
+    else if (k === 'vars') for (const [n, x] of Object.entries(v)) el.style.setProperty(n, String(x));
+    else if (k === 'tip') setTip(el, v);
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : String(v));
+  }
+}
+// replaceChildren() would stringify false/null; put() skips them like h() does
+function put(el, ...kids) {
+  el.replaceChildren();
+  return append(el, kids);
+}
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  setProps(el, props);
+  return append(el, kids);
+}
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, props, ...kids) {
+  const el = document.createElementNS(SVGNS, tag);
+  setProps(el, props);
+  return append(el, kids);
+}
+
+// ---------- formatting ----------
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+const arr = (v) => (Array.isArray(v) ? v : []);
+const sc = (v) => (isNum(v) ? v.toFixed(3) : '—');
+const pct = (v, d = 0) => (isNum(v) ? `${(v * 100).toFixed(d)}%` : '—');
+const kfmt = (n) => (!isNum(n) ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}k` : String(Math.round(n)));
+const plural = (n, w, p = `${w}s`) => `${n} ${n === 1 ? w : p}`;
+function clock(ms) {
+  if (!isNum(ms) || ms < 0) return '—';
+  const t = Math.floor(ms / 1000), hh = Math.floor(t / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60;
+  return `${hh ? `${hh}:${String(mm).padStart(2, '0')}` : String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+function hms(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour12: false });
+}
+function ago(ms) {
+  if (!isNum(ms)) return '';
+  if (ms < 4000) return 'just now';
+  if (ms < 60000) return `${Math.round(ms / 1000)}s ago`;
+  if (ms < 3600000) return `${Math.round(ms / 60000)}m ago`;
+  return `${Math.round(ms / 3600000)}h ago`;
+}
+const tms = (iso) => { const t = new Date(iso).getTime(); return Number.isNaN(t) ? null : t; };
+const cls = (str) => String(str || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+const graded = (ref) => !!ref && typeof ref.pass === 'boolean';
+const NO_REF = 'custom goal: there is no hidden referee, the team\'s audited definition of done is the only judge';
+function refBadge(ref, withProgress) {
+  if (!graded(ref)) return h('span', { class: 'b', tip: NO_REF }, 'no referee');
+  if (ref.pass) return h('span', { class: 'b pass' }, '✓ pass');
+  return h('span', { class: 'b fail' }, withProgress && isNum(ref.progress) ? `✗ fail · ${pct(ref.progress)}` : '✗ fail');
+}
+const refText = (ref) => (!graded(ref) ? 'no referee' : ref.pass ? 'PASS' : `fail ${pct(ref.progress)}`);
+function replayHref(p) {
+  return typeof p === 'string' && p.startsWith('/') && !p.startsWith('//') ? `/?replay=${encodeURIComponent(p)}` : null;
+}
+
+const ACTIONS = {
+  done: { label: 'done', desc: 'Every one of the team\'s own checks passes, so it declares the task done. The hidden referee may still disagree: that is a false done.' },
+  continue: { label: 'continue', desc: 'Some checks still fail but nothing is stuck: refine the same plan and fly again.' },
+  replan: { label: 'replan', desc: 'Loop detected: this flight failed exactly like an earlier attempt. The pilot must drop the plan and try a different strategy.' },
+  revert: { label: 'revert', desc: 'Drift: this attempt passed fewer checks than an earlier one. Roll back to the best attempt\'s code and change only what fails.' },
+  stop: { label: 'stop', desc: 'Attempt budget used up. Keep the best attempt and move on.' },
+  escalate: { label: 'escalate', desc: 'The definition of done itself broke on a real flight. Ping a human instead of guessing.' },
+};
+const ACTION_ORDER = ['done', 'continue', 'replan', 'revert', 'stop', 'escalate'];
+const actCls = (a) => (ACTIONS[a] ? `a-${a}` : 'a-none');
+const ROLE_ORDER = ['spec', 'auditor', 'pilot', 'coach'];
+const ROLE_DESC = {
+  spec: 'writes the executable definition of done: check(trace)',
+  auditor: 'a different model that attacks the spec before anyone flies',
+  pilot: 'writes the control program that flies the car',
+  coach: 'studies whole rounds and rewrites the playbook (Version N+1)',
+};
+
+// ---------- tooltip ----------
+const tips = new WeakMap();
+const tipEl = $('#tip');
+let tipOwner = null;
+function setTip(el, content) { tips.set(el, content); el.setAttribute('data-tip', ''); }
+function showTip(el) {
+  let c = tips.get(el);
+  if (typeof c === 'function') c = c();
+  if (c == null) return hideTip();
+  put(tipEl);
+  append(tipEl, [c]);
+  tipEl.style.display = 'block';
+}
+function hideTip() { tipEl.style.display = 'none'; tipOwner = null; }
+function placeTip(x, y) {
+  const r = tipEl.getBoundingClientRect();
+  let left = x + 14, top = y + 16;
+  if (left + r.width > innerWidth - 8) left = Math.max(8, x - r.width - 14);
+  if (top + r.height > innerHeight - 8) top = Math.max(8, y - r.height - 12);
+  tipEl.style.left = `${left}px`;
+  tipEl.style.top = `${top}px`;
+}
+document.addEventListener('pointerover', (e) => {
+  const t = e.target.closest ? e.target.closest('[data-tip]') : null;
+  if (t === tipOwner) return;
+  tipOwner = t;
+  if (t) { showTip(t); placeTip(e.clientX, e.clientY); } else hideTip();
+});
+document.addEventListener('pointermove', (e) => { if (tipOwner) placeTip(e.clientX, e.clientY); });
+document.addEventListener('focusin', (e) => {
+  const t = e.target.closest ? e.target.closest('[data-tip]') : null;
+  if (!t) return;
+  tipOwner = t;
+  showTip(t);
+  const r = t.getBoundingClientRect();
+  placeTip(r.left + Math.min(r.width, 40), r.bottom);
+});
+document.addEventListener('focusout', hideTip);
+addEventListener('scroll', () => { if (tipOwner) hideTip(); }, { passive: true, capture: true });
+const tipBox = (title, ...lines) => h('div', null, h('div', { class: 'tt' }, title), lines.filter(Boolean).map((l) => h('div', { class: 'tm' }, l)));
+
+// ---------- app state ----------
+const params = new URLSearchParams(location.search);
+const S = {
+  runId: params.get('run') || null,
+  follow: !params.get('run'),
+  index: [],
+  state: null,
+  raw: '',
+  needFetch: true,
+  err: null,
+  lastOk: 0,
+  timer: null,
+  ui: { open: new Map(), dets: new Set(), pb: null, drawer: null, logStick: true, opener: null },
+};
+let memo = {};
+const changed = (name, key) => { if (memo[name] === key) return false; memo[name] = key; return true; };
+
+async function fetchJSON(path) {
+  const r = await fetch(`${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' });
+  const ct = r.headers.get('content-type') || '';
+  if (!r.ok || ct.includes('text/html')) throw new Error(`${path.split('/').pop()} not found`);
+  const txt = await r.text();
+  try { return { txt, json: JSON.parse(txt) }; } catch { throw new Error(`${path.split('/').pop()} is mid-write`); }
+}
+
+async function refreshIndex() {
+  try {
+    const { json } = await fetchJSON(`${RUNS}/index.json`);
+    S.index = arr(json).filter((r) => r && typeof r.runId === 'string');
+  } catch { /* keep whatever we had */ }
+  renderPicker();
+}
+
+function setRun(id, follow) {
+  if (id === S.runId && follow === S.follow) return;
+  S.runId = id;
+  S.follow = follow;
+  S.state = null;
+  S.raw = '';
+  S.needFetch = true;
+  S.ui = { open: new Map(), dets: new Set(), pb: null, drawer: null, logStick: true, opener: null };
+  memo = {};
+  closeDrawer(true);
+  const u = new URL(location.href);
+  if (follow) u.searchParams.delete('run'); else u.searchParams.set('run', id);
+  history.replaceState(null, '', u);
+  renderPicker();
+  render();
+}
+
+async function loadState() {
+  const id = S.runId;
+  const { txt, json } = await fetchJSON(`${RUNS}/${encodeURIComponent(id)}/state.json`);
+  if (S.runId !== id) return; // the user switched runs while this was in flight
+  S.needFetch = false;
+  S.lastOk = Date.now();
+  if (txt === S.raw) return;
+  S.raw = txt;
+  S.state = normalize(json);
+  render();
+}
+
+let ticking = false, tickAgain = false;
+async function tick() {
+  if (ticking) { tickAgain = true; return; }
+  ticking = true;
+  clearTimeout(S.timer);
+  S.timer = null;
+  try {
+    if (S.follow) {
+      const { json } = await fetchJSON(`${RUNS}/latest.json`);
+      if (json && typeof json.runId === 'string' && json.runId !== S.runId) {
+        setRun(json.runId, true);
+        refreshIndex();
+      }
+    }
+    if (S.runId && (S.needFetch || (S.state && S.state.status === 'running'))) await loadState();
+    S.err = S.runId ? null : 'no runs yet';
+  } catch (e) {
+    S.err = String((e && e.message) || e);
+  }
+  ticking = false;
+  if (tickAgain) { tickAgain = false; tick(); return; }
+  renderConn();
+  const running = S.state && S.state.status === 'running';
+  const delay = S.err ? 3000 : running ? 2000 : S.follow ? 4000 : 0;
+  if (delay) S.timer = setTimeout(tick, delay);
+}
+
+// ---------- normalise partial / older state files ----------
+function normalize(st) {
+  const s = st && typeof st === 'object' ? st : {};
+  s.config = s.config && typeof s.config === 'object' ? s.config : {};
+  s.config.models = s.config.models && typeof s.config.models === 'object' ? s.config.models : {};
+  s.ledger = s.ledger && typeof s.ledger === 'object' ? s.ledger : {};
+  s.ledger.byRole = s.ledger.byRole && typeof s.ledger.byRole === 'object' ? s.ledger.byRole : {};
+  s.playbooks = arr(s.playbooks).filter((p) => p && typeof p === 'object');
+  s.rounds = arr(s.rounds).filter((r) => r && typeof r === 'object');
+  s.pings = arr(s.pings).filter(Boolean);
+  s.log = arr(s.log).filter(Boolean);
+  s.live = s.live && typeof s.live === 'object' ? s.live : {};
+  for (const p of s.playbooks) {
+    p.insights = arr(p.insights).map((i, k) => (i && typeof i === 'object' ? { id: String(i.id ?? `#${k}`), text: String(i.text ?? '') } : { id: String(i), text: String(i) }));
+    p.changelog = arr(p.changelog).map(String);
+    p.experiments = arr(p.experiments).filter((x) => x && typeof x === 'object');
+    p.skillTestResults = arr(p.skillTestResults).filter((x) => x && typeof x === 'object');
+  }
+  let testIdx = 0;
+  for (const r of s.rounds) {
+    r.episodes = arr(r.episodes).filter((e) => e && typeof e === 'object');
+    r.failedTasks = arr(r.failedTasks);
+    if (r.split === 'test' && (s.kind === 'evolve' || s.kind === 'eval')) r._side = testIdx++ % 2 ? 'after' : 'before';
+    for (const e of r.episodes) {
+      e.attempts = arr(e.attempts).filter((a) => a && typeof a === 'object');
+      e.spec = e.spec && typeof e.spec === 'object' ? e.spec : {};
+      e.spec.criteria = arr(e.spec.criteria);
+      e.spec.audits = arr(e.spec.audits).filter(Boolean);
+      e.referee = e.referee && typeof e.referee === 'object' ? e.referee : {};
+      // custom goals have no hidden referee (pass: null): never count them as false/missed done
+      e._graded = graded(e.referee);
+      e._fd = e._graded && (typeof e.falseDone === 'boolean' ? e.falseDone : !!e.claimedDone && !e.referee.pass);
+      e._md = e._graded && !e.claimedDone && e.referee.pass === true;
+      e.attempts.forEach((a, i) => {
+        a.n = isNum(a.n) ? a.n : i + 1;
+        a.check = a.check && typeof a.check === 'object' ? a.check : {};
+        a.check.results = arr(a.check.results).filter(Boolean);
+        a.referee = a.referee && typeof a.referee === 'object' ? a.referee : {};
+        a.decision = a.decision && typeof a.decision === 'object' ? a.decision : null;
+      });
+    }
+  }
+  return s;
+}
+
+const bestVersion = (s) => {
+  if (isNum(s.best)) return s.best;
+  const kept = s.playbooks.filter((p) => p.accepted === true && isNum(p.score));
+  return kept.length ? kept[kept.length - 1].version : null;
+};
+function lastActivity(s) {
+  let t = tms(s.log.length ? s.log[s.log.length - 1].t : s.startedAt) || 0;
+  for (const l of Object.values(s.live)) if (l && isNum(l.updated)) t = Math.max(t, l.updated);
+  return t;
+}
+
+// ---------- render: header ----------
+function renderPicker() {
+  const sel = $('#runPick');
+  const opts = [h('option', { value: '' }, `● Latest (auto-follow)${S.follow && S.runId ? ` · ${S.runId}` : ''}`)];
+  const seen = new Set();
+  for (const r of S.index) {
+    if (seen.has(r.runId)) continue;
+    seen.add(r.runId);
+    opts.push(h('option', { value: r.runId }, runLabel(r)));
+  }
+  if (S.runId && !S.follow && !seen.has(S.runId)) opts.push(h('option', { value: S.runId }, S.runId));
+  put(sel, ...opts);
+  sel.value = S.follow ? '' : S.runId || '';
+}
+function runLabel(r) {
+  const c = r.config || {};
+  const d = new Date(r.startedAt);
+  const when = Number.isNaN(d.getTime()) ? r.runId : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+  let detail = '';
+  if (r.kind === 'evolve') detail = `${c.gens ?? '?'} gens × ${c.attempts ?? '?'} attempts`;
+  else if (r.kind === 'episode') detail = `${c.task ?? '?'} · v${c.playbook ?? 0}`;
+  else if (r.kind === 'eval') detail = `v${c.before ?? '?'} vs v${c.after ?? '?'}`;
+  else if (r.kind === 'goal' && c.goal) detail = `"${String(c.goal).slice(0, 48)}${String(c.goal).length > 48 ? '…' : ''}"`;
+  return `${when} · ${String(r.kind || 'run').toUpperCase()}${detail ? ` · ${detail}` : ''}`;
+}
+$('#runPick').addEventListener('change', (e) => {
+  const v = e.target.value;
+  if (!v) setRun(null, true);
+  else setRun(v, false);
+  tick();
+});
+
+function renderConn() {
+  const el = $('#conn');
+  if (S.err && !S.state) { el.className = 'conn err'; el.textContent = S.err === 'no runs yet' ? 'no runs yet: start one with node school/cli.js evolve' : `waiting for data (${S.err})`; return; }
+  if (S.err) { el.className = 'conn err'; el.textContent = `reconnecting… (${S.err})`; return; }
+  el.className = 'conn';
+  const running = S.state && S.state.status === 'running';
+  el.textContent = running ? `live · polled ${ago(Date.now() - S.lastOk)}` : S.follow ? 'auto-following the newest run' : 'run finished · not polling';
+}
+
+function renderHeader(s) {
+  const running = s.status === 'running';
+  const start = tms(s.startedAt);
+  const end = running ? Date.now() : tms(s.finishedAt) || lastActivity(s);
+  const quiet = running ? Date.now() - lastActivity(s) : 0;
+  const c = s.config;
+  const cfg = s.kind === 'evolve' ? `${c.gens ?? '?'} gens · ${c.attempts ?? '?'} attempts/task${c.repeats > 1 ? ` · ${c.repeats} repeats` : ''}`
+    : s.kind === 'episode' ? `task ${c.task ?? '?'} · ${c.attempts ?? '?'} attempts`
+      : s.kind === 'eval' ? `v${c.before ?? '?'} vs v${c.after ?? '?'}`
+        : s.kind === 'goal' ? `goal: ${c.goal ?? '?'} · ${c.attempts ?? '?'} attempts` : '';
+  put($('#hdrStatus'),
+    h('span', { class: `pill ${running ? 'running' : s.status === 'done' ? 'done' : 'other'}` }, h('span', { class: 'dot' }), String(s.status || 'unknown').toUpperCase()),
+    h('span', { class: 'chip timer', tip: running ? 'elapsed since the run started' : 'total run time' }, h('span', { class: 'k' }, running ? 'elapsed' : 'took'), h('span', { class: 'v', id: 'elapsed', 'data-start': start || '', 'data-end': running ? '' : end || '' }, clock(start ? end - start : NaN))),
+    h('span', { class: 'chip', tip: () => tipBox(`${String(s.kind || '?').toUpperCase()} RUN`, cfg) }, h('span', { class: 'k' }, 'phase'), h('span', { class: 'v' }, String(s.phase || '?').toUpperCase())),
+    h('span', { class: `chip pingchip${s.pings.length ? ' hot' : ''}`, tip: 'escalations where the agents asked a human for help' }, h('span', { class: 'k' }, 'pings'), h('span', { class: 'v' }, String(s.pings.length))),
+    running && quiet > 90000 && h('span', { class: 'chip warn', tip: 'no log line or live update for a while: the run may be waiting on a slow model, or the process may have stopped' }, h('span', { class: 'k' }, 'quiet'), h('span', { class: 'v' }, ago(quiet).replace(' ago', ''))),
+  );
+
+  const L = s.ledger;
+  const roles = Object.keys(L.byRole).sort((a, b) => (ROLE_ORDER.indexOf(a) + 1 || 99) - (ROLE_ORDER.indexOf(b) + 1 || 99));
+  for (const r of ROLE_ORDER) if (!roles.includes(r) && s.config.models[r]) roles.push(r);
+  put($('#ledger'), 
+    h('span', { class: 'lstat' }, h('span', { class: 'k' }, 'LLM calls'), h('span', { class: 'v' }, kfmt(L.calls ?? 0))),
+    h('span', { class: 'lstat', tip: 'prompt tokens sent to Crusoe Managed Inference' }, h('span', { class: 'k' }, 'tokens in'), h('span', { class: 'v' }, kfmt(L.promptTokens ?? 0))),
+    h('span', { class: 'lstat', tip: 'completion tokens generated' }, h('span', { class: 'k' }, 'out'), h('span', { class: 'v' }, kfmt(L.completionTokens ?? 0))),
+    h('div', { class: 'roles' }, roles.map((r) => {
+      const b = L.byRole[r] || {};
+      const model = b.model || s.config.models[r] || '?';
+      const planned = s.config.models[r];
+      return h('span', {
+        class: `role${b.calls ? '' : ' zero'}`,
+        tip: () => tipBox(r.toUpperCase(), ROLE_DESC[r] || '', `model: ${model}`, planned && planned !== model ? `configured: ${planned}` : '',
+          `${b.calls ?? 0} calls · ${kfmt(b.prompt ?? 0)} in / ${kfmt(b.completion ?? 0)} out`, b.calls && b.ms ? `avg latency ${(b.ms / b.calls / 1000).toFixed(1)} s` : ''),
+      }, h('span', { class: 'rn' }, r), h('span', { class: 'arrow' }, '→'), h('span', { class: 'rm' }, model), h('span', { class: 'rc' }, `×${b.calls ?? 0}`));
+    })),
+  );
+  put($('#foot'), 'data: ', h('code', null, `${RUNS}/${s.runId || S.runId}/state.json`));
+  document.title = `${running ? '● ' : ''}Stunt School Live`;
+}
+
+function renderPings(s) {
+  const el = $('#pings');
+  if (!s.pings.length) { el.hidden = true; put(el); return; }
+  el.hidden = false;
+  put(el, 
+    h('h2', null, h('span', { class: 'siren' }), `HUMAN ATTENTION NEEDED · ${s.pings.length}`),
+    s.pings.slice(-6).reverse().map((p) => h('div', { class: 'ping' }, h('span', { class: 't' }, hms(p.t)), h('span', { class: 'task' }, String(p.task ?? '?')), h('span', { class: 'm' }, String(p.message ?? '')))),
+  );
+}
+
+// ---------- render: live ----------
+function stageInfo(stage) {
+  const st = String(stage || '');
+  const m = /attempt\s+\d+:\s*(\w+)/i.exec(st);
+  if (m && ACTIONS[m[1].toLowerCase()]) return { act: m[1].toLowerCase() };
+  if (/^spec/i.test(st)) return { badge: h('span', { class: 'b purple' }, 'spec') };
+  if (/^pilot/i.test(st)) return { badge: h('span', { class: 'b cool' }, 'pilot') };
+  return {};
+}
+function renderLive(s) {
+  const el = $('#live');
+  const entries = Object.entries(s.live).filter(([, v]) => v && typeof v === 'object')
+    .sort((a, b) => String(a[1].task || a[0]).localeCompare(String(b[1].task || b[0])));
+  const running = s.status === 'running';
+  const lastLog = s.log[s.log.length - 1];
+  el.classList.toggle('idle', !entries.length);
+  if (!entries.length) {
+    const msg = !running ? `Run finished${s.finishedAt ? ` at ${hms(s.finishedAt)}` : ''}. Nothing is flying right now.`
+      : lastLog && lastLog.kind === 'coach' ? 'Between rounds: the coach is studying the flights and rewriting the playbook…'
+        : 'Between episodes…';
+    put(el, phead('Live now', null, running ? h('span', { class: 'b acc' }, '0 flying') : null), h('div', { class: 'empty' }, msg), justLanded(s));
+    return;
+  }
+  put(el, 
+    phead('Live now', 'episodes in flight this second', h('span', { class: 'b acc' }, `${entries.length} flying`)),
+    h('div', { class: 'live-list' }, entries.map(([key, l]) => {
+      const info = stageInfo(l.stage);
+      const lc = /^(\d+)\s*\/\s*(\d+)$/.exec(String(l.lastCheck || ''));
+      return h('article', { class: 'lc' },
+        h('div', { class: 'lc-top' },
+          h('span', { class: 'lc-task' }, String(l.task || key)),
+          isNum(l.version) && h('span', { class: 'b' }, `playbook v${l.version}`),
+          /^test/.test(key) && h('span', { class: 'b warn' }, 'held-out')),
+        l.goal && h('div', { class: 'lc-goal' }, String(l.goal)),
+        h('div', { class: 'lc-stage' }, h('span', { class: 'spin' }), info.act ? h('span', { class: `act ${actCls(info.act)}` }, info.act) : info.badge, h('span', { class: 'st' }, String(l.stage || 'starting'))),
+        h('div', { class: 'lc-meta' },
+          isNum(l.attempt) && l.attempt > 0 && h('span', null, `attempt ${l.attempt}${isNum(s.config.attempts) ? ` of ${s.config.attempts}` : ''}`),
+          lc && h('span', null, `self-check ${lc[1]}/${lc[2]}`),
+          lc && h('span', { class: 'bar', vars: { '--p': Number(lc[2]) ? Number(lc[1]) / Number(lc[2]) : 0, '--c': 'var(--cyan)' } }, h('i')),
+          isNum(l.updated) && h('span', { class: 'lc-ago', 'data-upd': l.updated }, ago(Date.now() - l.updated))));
+    })),
+    justLanded(s),
+  );
+}
+
+// newest finished flights (state.feed, written after every attempt), each one click away from the 3D replay
+function justLanded(s) {
+  const feed = arr(s.feed).filter((f) => f && typeof f === 'object').slice(-4).reverse();
+  if (!feed.length) return null;
+  return h('div', { class: 'landed' },
+    h('div', { class: 'sub-h' }, 'Just landed', h('span', { class: 'note' }, 'newest attempts first')),
+    feed.map((f) => {
+      const act = f.decision && f.decision.action;
+      const ref = f.referee && typeof f.referee === 'object' ? f.referee : {};
+      const href = replayHref(f.replay);
+      const t = tms(f.t);
+      return h('div', { class: 'jl', tip: () => tipBox(`${String(f.task || '?')} · attempt ${f.attempt ?? '?'}`, f.goal ? String(f.goal) : '', f.decision && f.decision.reason ? `watchdog: ${f.decision.reason}` : '', f.crash ? `crash: ${f.crash}` : '') },
+        h('span', { class: 'jl-t' }, String(f.task || '?'), h('span', { class: 'jl-a' }, ` a${f.attempt ?? '?'}`), isNum(f.version) ? h('span', { class: 'jl-a' }, ` · v${f.version}`) : null),
+        act ? h('span', { class: `act ${actCls(act)}` }, act) : h('span'),
+        h('span', { class: 'jl-v' },
+          h('span', { class: f.selfCheck ? 'ok' : 'no' }, `self ${f.selfCheck ? '✓' : '✗'} ${f.checks || ''}`),
+          ' · ',
+          graded(ref) ? h('span', { class: ref.pass ? 'ok' : 'no' }, `ref ${ref.pass ? '✓' : `✗ ${pct(ref.progress)}`}`) : h('span', null, 'no referee'),
+          f.selfCheck && graded(ref) && !ref.pass ? h('span', { class: 'warnc' }, ' ⚠') : null),
+        t ? h('span', { class: 'jl-ago', 'data-upd': t }, ago(Date.now() - t)) : h('span'),
+        href ? h('a', { class: 'mini3d', href, target: '_blank', rel: 'noopener' }, '▶ 3D') : h('span'));
+    }));
+}
+
+function phead(title, sub, ...right) {
+  return h('div', { class: 'ph' },
+    h('div', { class: 'ph-l' }, h('h2', null, title), sub && h('div', { class: 'ph-sub' }, sub)),
+    right.flat().filter(Boolean).length ? h('div', { class: 'ph-r' }, right) : null);
+}
+
+// ---------- render: hero (Version N+1) ----------
+function pendingCandidate(s, pts) {
+  if (s.status !== 'running' || s.phase !== 'train' || !pts.length) return null;
+  const maxV = Math.max(...pts.map((p) => p.version));
+  const liveV = Object.values(s.live).map((l) => l && l.version).filter(isNum);
+  const lv = liveV.length ? Math.max(...liveV) : -1;
+  if (lv > maxV) return { version: lv, label: 'flying' };
+  const last = s.log[s.log.length - 1];
+  if (last && last.kind === 'coach') return { version: maxV + 1, label: 'coach writing' };
+  return null;
+}
+
+function renderHero(s) {
+  const el = $('#hero');
+  const width = el.clientWidth;
+  if (s.kind === 'episode' || s.kind === 'goal') {
+    const r = s.rounds[s.rounds.length - 1];
+    const key = JSON.stringify([r || null, s.live, s.status, width]);
+    if (!changed('hero', key)) return;
+    put(el, spotlight(s, r, s.rounds.length - 1));
+    return;
+  }
+  const pts = s.playbooks.filter((p) => isNum(p.score)).sort((a, b) => a.version - b.version);
+  const best = bestVersion(s);
+  const pending = pendingCandidate(s, pts);
+  const key = JSON.stringify([pts.map((p) => [p.version, p.score, p.baseline, p.accepted, p.parent, p.changelog[0]]), s.eval, pending, best, width, s.kind, s.status, s.config.gens]);
+  if (!changed('hero', key)) return;
+
+  if (s.kind !== 'eval') {
+    put(el, phead('Version N+1', 'The coach studies every flight and rewrites the team\'s playbook. A rewrite survives only if it beats its parent\'s score on the training tasks.'));
+    if (!pts.length) {
+      const running = s.status === 'running';
+      el.append(h('div', { class: 'pending-box' }, running ? h('span', { class: 'spin big' }) : null,
+        h('div', null, h('div', { class: 't' }, running ? 'TRAINING ROUND v0 IN PROGRESS' : 'NO TRAINING SCORES'),
+          h('div', null, running ? 'The empty seed playbook is flying the training tasks. Its score becomes the bar every rewrite must beat.' : 'This run recorded no scored playbook versions.'))));
+    } else {
+      const box = h('div', { class: 'chartbox' });
+      el.append(storyLine(pts, best), legend(), box);
+      box.append(chart(s, pts, best, pending, box.clientWidth || width - 40));
+    }
+    el.append(h('div', { class: 'divider' }));
+  } else {
+    put(el, phead('Held-out exam', 'Comparing two playbooks on tasks never used for training.'));
+  }
+  el.append(evalBlock(s, best));
+}
+
+function storyLine(pts, best) {
+  const seed = pts[0];
+  const props = pts.filter((p) => p.parent != null);
+  const kept = props.filter((p) => p.accepted === true);
+  const bp = pts.find((p) => p.version === best) || seed;
+  const delta = bp.score - seed.score;
+  const rel = seed.score > 0 ? delta / seed.score : null;
+  const dirCls = delta > 1e-9 ? 'up' : delta < -1e-9 ? 'down' : 'flat';
+  return h('div', { class: 'story' },
+    h('div', { class: 'big' }, `v${seed.version} ${sc(seed.score)} `, h('span', { class: 'flat' }, '→'), ` v${bp.version} `,
+      h('span', { class: dirCls }, sc(bp.score)),
+      delta > 1e-9 && rel != null ? h('span', { class: 'up', style: 'font-size:1.1rem;margin-left:10px' }, `+${Math.round(rel * 100)}%`) : null),
+    h('div', { class: 'small' }, `${plural(props.length, 'rewrite')} proposed · ${kept.length} kept · ${props.length - kept.length} rejected${!kept.length && props.length ? ' · the seed is still the best playbook' : ''}`));
+}
+
+function legend() {
+  const sw = (...k) => sv('svg', { viewBox: '0 0 26 14', 'aria-hidden': 'true' }, ...k);
+  return h('div', { class: 'legend' },
+    h('span', null, sw(sv('line', { x1: 1, y1: 7, x2: 25, y2: 7, stroke: '#ff2d55', 'stroke-width': 2.5 }), sv('circle', { cx: 13, cy: 7, r: 4.5, fill: '#ff2d55', stroke: '#0d0f18', 'stroke-width': 2 })), 'kept (became the current playbook)'),
+    h('span', null, sw(sv('circle', { cx: 13, cy: 7, r: 5.5, fill: '#0d0f18', stroke: '#ff6b7a', 'stroke-width': 2 }), sv('path', { d: 'M10.6 4.6 L15.4 9.4 M15.4 4.6 L10.6 9.4', stroke: '#ff6b7a', 'stroke-width': 1.8, 'stroke-linecap': 'round' })), 'rejected proposal'),
+    h('span', null, sw(sv('line', { x1: 5, y1: 7, x2: 21, y2: 7, stroke: '#c9cfdf', 'stroke-width': 2, opacity: 0.7 })), 'baseline it had to beat'),
+    h('span', null, sw(sv('circle', { cx: 13, cy: 7, r: 5.5, fill: 'none', stroke: '#fff', 'stroke-width': 1.5 })), 'best'));
+}
+
+function niceScale(maxV) {
+  const target = Math.max(maxV, 0.04) * 1.15;
+  for (const st of [0.01, 0.02, 0.05, 0.1, 0.2, 0.25]) {
+    const n = Math.ceil(target / st);
+    if (n <= 5) return { step: st, max: Math.min(st * n, maxV <= 1 ? Math.max(1, maxV) : st * n) };
+  }
+  return { step: 0.25, max: 1 };
+}
+
+function chart(s, pts, best, pending, width) {
+  const W = Math.max(300, Math.round(width));
+  const H = W < 560 ? 220 : 270;
+  const m = { l: 46, r: 22, t: 34, b: 46 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const gens = isNum(s.config.gens) ? s.config.gens : 0;
+  const nData = pts.length + (pending ? 1 : 0);
+  const slots = Math.max(nData, s.kind === 'evolve' ? gens + 1 : 0, 2);
+  const pad = Math.min(36, iw / slots / 2);
+  const xAt = (i) => m.l + pad + (slots > 1 ? (i * (iw - 2 * pad)) / (slots - 1) : 0);
+  const vals = pts.flatMap((p) => [p.score, p.baseline]).filter(isNum);
+  const { step, max } = niceScale(Math.max(...vals, 0));
+  const yAt = (v) => m.t + ih - (Math.max(0, Math.min(max, v)) / max) * ih;
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': `Training score per playbook version: ${pts.map((p) => `v${p.version} ${sc(p.score)} ${p.parent == null ? 'seed' : p.accepted ? 'kept' : 'rejected'}`).join(', ')}` });
+  const defs = sv('defs', null,
+    sv('linearGradient', { id: 'gk', x1: 0, y1: 0, x2: 0, y2: 1 }, sv('stop', { offset: '0%', 'stop-color': '#ff2d55', 'stop-opacity': 0.22 }), sv('stop', { offset: '100%', 'stop-color': '#ff2d55', 'stop-opacity': 0 })),
+    sv('filter', { id: 'glow', x: '-20%', y: '-50%', width: '140%', height: '200%' }, sv('feGaussianBlur', { stdDeviation: 3.2 })));
+  svg.append(defs);
+  // grid + y ticks
+  for (let v = 0; v <= max + 1e-9; v += step) {
+    const y = yAt(v);
+    svg.append(sv('line', { x1: m.l, x2: W - m.r, y1: y, y2: y, stroke: v === 0 ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.06)', 'stroke-width': 1 }));
+    svg.append(sv('text', { x: m.l - 9, y: y + 4, 'text-anchor': 'end', fill: '#7d8399', 'font-size': 11.5, 'font-family': 'JetBrains Mono, monospace' }, v.toFixed(step < 0.1 ? 2 : 1)));
+  }
+  svg.append(sv('text', { x: m.l - 36, y: m.t - 16, fill: '#7d8399', 'font-size': 10.5, 'letter-spacing': '.14em', 'font-family': 'Chakra Petch, sans-serif', 'font-weight': 700 }, 'TRAIN SCORE'));
+  // slot labels (incl. future generations)
+  for (let i = 0; i < slots; i++) {
+    const p = pts[i];
+    const isPend = !p && pending && i === pts.length;
+    const nextV = pending ? pending.version + 1 : (pts.length ? pts[pts.length - 1].version : 0) + 1;
+    const v = p ? p.version : isPend ? pending.version : nextV + (i - pts.length - (pending ? 1 : 0));
+    const status = p ? (p.parent == null ? 'seed' : p.accepted ? 'kept' : 'rejected') : isPend ? pending.label : 'queued';
+    const col = p ? (p.parent == null ? '#9298ae' : p.accepted ? '#ff7a95' : '#ff6b7a') : isPend ? '#ff2d55' : '#454a5c';
+    svg.append(sv('text', { x: xAt(i), y: H - m.b + 20, 'text-anchor': 'middle', fill: p || isPend ? '#eef1f8' : '#454a5c', 'font-size': 14, 'font-weight': 700, 'font-family': 'Chakra Petch, sans-serif' }, `v${v}`));
+    svg.append(sv('text', { x: xAt(i), y: H - m.b + 35, 'text-anchor': 'middle', fill: col, 'font-size': 10, 'letter-spacing': '.12em', 'font-family': 'Chakra Petch, sans-serif', 'font-weight': 600 }, status.toUpperCase()));
+  }
+  // kept line + area
+  const kept = pts.map((p, i) => ({ p, i })).filter(({ p }) => p.accepted === true || p.parent == null);
+  if (kept.length) {
+    const line = kept.map(({ p, i }) => `${xAt(i).toFixed(1)},${yAt(p.score).toFixed(1)}`).join(' ');
+    if (kept.length > 1) {
+      const first = kept[0], last = kept[kept.length - 1];
+      svg.append(sv('path', { d: `M${xAt(first.i)},${yAt(0)} L${line.replace(/ /g, ' L')} L${xAt(last.i)},${yAt(0)} Z`, fill: 'url(#gk)' }));
+      svg.append(sv('polyline', { points: line, fill: 'none', stroke: '#ff2d55', 'stroke-width': 6, opacity: 0.35, filter: 'url(#glow)' }));
+      svg.append(sv('polyline', { points: line, fill: 'none', stroke: '#ff2d55', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
+    }
+    // carry the current champion's level forward as a hairline to the newest slot
+    const lastK = kept[kept.length - 1];
+    const endI = pts.length - 1 + (pending ? 1 : 0);
+    if (endI > lastK.i) svg.append(sv('line', { x1: xAt(lastK.i), x2: xAt(endI), y1: yAt(lastK.p.score), y2: yAt(lastK.p.score), stroke: '#ff2d55', 'stroke-width': 1, opacity: 0.35 }));
+  }
+  // proposals: baseline tick + stem
+  pts.forEach((p, i) => {
+    if (p.parent == null || !isNum(p.baseline)) return;
+    const x = xAt(i), yb = yAt(p.baseline), ys = yAt(p.score);
+    svg.append(sv('line', { x1: x, x2: x, y1: yb, y2: ys, stroke: p.accepted ? '#5dff9b' : '#ff6b7a', 'stroke-width': 1.5, opacity: 0.65 }));
+    svg.append(sv('line', { x1: x - 11, x2: x + 11, y1: yb, y2: yb, stroke: '#c9cfdf', 'stroke-width': 2, opacity: 0.7, 'stroke-linecap': 'round' }));
+  });
+  // markers + labels
+  const slotW = slots > 1 ? (iw - 2 * pad) / (slots - 1) : iw;
+  pts.forEach((p, i) => {
+    const x = xAt(i), y = yAt(p.score);
+    const rej = p.parent != null && p.accepted === false;
+    const g = sv('g');
+    // labels go on the side away from the baseline tick so they never collide with it
+    const below = isNum(p.baseline) && p.baseline > p.score;
+    if (p.version === best) {
+      g.append(sv('circle', { cx: x, cy: y, r: 12, fill: 'none', stroke: '#fff', 'stroke-width': 1.5, opacity: 0.85 }));
+      g.append(sv('text', { x, y: below ? y + 42 : y - 34, 'text-anchor': 'middle', fill: '#fff', 'font-size': 10.5, 'letter-spacing': '.16em', 'font-weight': 700, 'font-family': 'Chakra Petch, sans-serif' }, 'BEST'));
+    }
+    if (rej) {
+      g.append(sv('circle', { cx: x, cy: y, r: 7.5, fill: '#0d0f18', stroke: '#ff6b7a', 'stroke-width': 2 }));
+      g.append(sv('path', { d: `M${x - 3.4} ${y - 3.4} L${x + 3.4} ${y + 3.4} M${x + 3.4} ${y - 3.4} L${x - 3.4} ${y + 3.4}`, stroke: '#ff6b7a', 'stroke-width': 2, 'stroke-linecap': 'round' }));
+    } else {
+      g.append(sv('circle', { cx: x, cy: y, r: 6.5, fill: '#ff2d55', stroke: '#0d0f18', 'stroke-width': 2.5 }));
+    }
+    const ly = below ? y + (p.version === best ? 27 : 23) : y - (p.version === best ? 18 : 14);
+    g.append(sv('text', { x, y: ly, 'text-anchor': 'middle', fill: rej ? '#9298ae' : '#eef1f8', 'font-size': 12.5, 'font-weight': 600, 'font-family': 'JetBrains Mono, monospace' }, sc(p.score)));
+    svg.append(g);
+  });
+  if (pending) {
+    const i = pts.length, x = xAt(i);
+    const kp = kept.length ? kept[kept.length - 1].p.score : pts[pts.length - 1].score;
+    const y = yAt(kp);
+    svg.append(sv('circle', { class: 'pend-ring', cx: x, cy: y, r: 8, fill: 'none', stroke: '#ff2d55', 'stroke-width': 2 }));
+    svg.append(sv('text', { x, y: y - 15, 'text-anchor': 'middle', fill: '#ff2d55', 'font-size': 12, 'font-weight': 700, 'font-family': 'Chakra Petch, sans-serif' }, '?'));
+  }
+  // hover / click targets (≥24px wide), one per version
+  pts.forEach((p, i) => {
+    const x = xAt(i);
+    const hw = Math.max(24, Math.min(slotW, 120)) / 2;
+    const status = p.parent == null ? 'SEED' : p.accepted ? 'KEPT' : 'REJECTED';
+    const d = isNum(p.baseline) ? p.score - p.baseline : null;
+    const hit = sv('rect', {
+      class: 'hit', x: x - hw, y: m.t - 24, width: hw * 2, height: ih + 24 + 40, fill: 'transparent', tabindex: 0, role: 'button',
+      'aria-label': `v${p.version} ${status} score ${sc(p.score)}`,
+      tip: () => tipBox(h('span', null, `v${p.version}`, ' ', h('span', { class: `b ${p.parent == null ? '' : p.accepted ? 'pass' : 'fail'}` }, status), p.version === best ? h('span', { class: 'b acc' }, 'best') : null),
+        `train score ${sc(p.score)}`,
+        isNum(p.baseline) ? `baseline (v${p.parent}) ${sc(p.baseline)} · Δ ${d >= 0 ? '+' : ''}${sc(d)}` : 'the empty seed playbook',
+        p.changelog[0] && p.parent != null ? `coach: ${p.changelog[0].slice(0, 160)}` : '',
+        'click to open it in the playbook explorer'),
+      onclick: () => selectPlaybook(p.version, true),
+      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPlaybook(p.version, true); } },
+    });
+    svg.append(hit);
+    svg.append(sv('rect', { class: 'hl', x: x - hw, y: m.t - 24, width: hw * 2, height: ih + 24, fill: 'rgba(255,255,255,.035)', rx: 8 }));
+  });
+  return svg;
+}
+
+function evalBlock(s, best) {
+  const ev = s.eval;
+  const wrap = h('div');
+  wrap.append(h('div', { class: 'sub-h' }, 'Held-out exam', h('span', { class: 'note' }, 'tasks the agents never trained on · same hidden referee')));
+  if (!ev || !ev.before || !ev.after) {
+    const running = s.status === 'running';
+    wrap.append(h('div', { class: 'pending-box' },
+      h('div', null,
+        h('div', { class: 't' }, s.phase === 'eval' && running ? 'HELD-OUT EVAL RUNNING…' : 'HELD-OUT EVAL PENDING'),
+        h('div', null, running ? `After training, the seed playbook v0 and the best playbook${isNum(best) ? ` (currently v${best})` : ''} both fly tasks no agent has seen. Same referee, same attempt budget.`
+          : 'This run finished without a held-out comparison.'))));
+    return wrap;
+  }
+  const b = ev.before, a = ev.after;
+  const taskIds = [...new Set([...Object.keys(b.tasks || {}), ...Object.keys(a.tasks || {})])];
+  const nT = taskIds.length || 1;
+  const reps = isNum(ev.repeats) ? ev.repeats : 1;
+  const dl = (va, vb, higherGood, fmt) => {
+    if (!isNum(va) || !isNum(vb)) return null;
+    const d = va - vb;
+    if (Math.abs(d) < 1e-9) return h('span', { class: 'd same' }, '±0');
+    const good = higherGood == null ? null : (d > 0) === higherGood;
+    return h('span', { class: `d ${good == null ? 'same' : good ? 'good' : 'bad'}` }, `${d > 0 ? '+' : '−'}${fmt(Math.abs(d))}`);
+  };
+  const card = (side, x, other) => h('div', { class: `ba-card ${side}` },
+    h('div', { class: 'ba-h' }, h('span', { class: 't' }, side === 'before' ? 'BEFORE' : 'AFTER'),
+      h('span', { class: 'ver' }, `playbook v${x.version ?? '?'}`, side === 'before' && x.version === 0 ? h('span', { class: 'b', style: 'margin-left:8px' }, 'seed') : null, side === 'after' && x.version === best ? h('span', { class: 'b acc', style: 'margin-left:8px' }, 'best') : null)),
+    h('div', { class: 'ba-hero' }, h('span', { class: 'n' }, pct(x.passRate)), h('span', { class: 'l' }, 'referee pass rate'),
+      side === 'after' ? dl(x.passRate, other.passRate, true, (v) => `${Math.round(v * 100)} pts`) : null),
+    h('div', { class: 'ba-stats' },
+      h('div', { class: 'ba-stat' }, h('div', { class: 'v' }, sc(x.score), side === 'after' ? dl(x.score, other.score, true, (v) => v.toFixed(3)) : null), h('div', { class: 'k' }, 'score')),
+      h('div', { class: 'ba-stat', tip: 'times the team said DONE but the hidden referee failed the flight' }, h('div', { class: 'v', style: x.falseDone ? 'color:var(--amber)' : '' }, `${x.falseDone ?? '—'}`, h('span', { style: 'font-size:.9rem;color:var(--dim)' }, `/${nT * reps}`), side === 'after' ? dl(x.falseDone, other.falseDone, false, (v) => String(v)) : null), h('div', { class: 'k' }, 'false done')),
+      h('div', { class: 'ba-stat', tip: 'average attempts used per task' }, h('div', { class: 'v' }, isNum(x.attemptsUsed) ? (x.attemptsUsed / nT).toFixed(1) : '—', side === 'after' && isNum(x.attemptsUsed) && isNum(other.attemptsUsed) ? dl(x.attemptsUsed / nT, other.attemptsUsed / nT, null, (v) => v.toFixed(1)) : null), h('div', { class: 'k' }, 'attempts / task'))));
+  wrap.append(h('div', { class: 'ba' }, card('before', b, a), h('div', { class: 'ba-arrow', 'aria-hidden': 'true' }, '→'), card('after', a, b)));
+  if (a.version === b.version) wrap.append(h('div', { class: 'ba-note' }, `No rewrite beat the seed on the training tasks, so the "after" playbook is v${a.version} again: the comparison shows run-to-run noise only.`));
+  const chip = (r) => {
+    const fd = r.claimedDone && !r.pass;
+    return h('span', {
+      class: `tchip ${r.pass ? 'p' : fd ? 'fd' : 'f'}`,
+      tip: () => tipBox(r.pass ? 'REFEREE PASS' : 'REFEREE FAIL', `progress ${pct(r.progress)}`, `${plural(r.attempts ?? 0, 'attempt')}`, r.claimedDone ? (r.pass ? 'team said DONE: correct' : 'team said DONE but the referee failed it (false done)') : 'team did not claim done'),
+    }, r.pass ? '✓ pass' : `✗ ${pct(r.progress)}`, fd ? ' ⚠' : '');
+  };
+  wrap.append(h('div', { class: 'tasks' },
+    h('div', { class: 'th c0' }, 'task'), h('div', { class: 'th' }, `v${b.version}`), h('div', { class: 'th' }, `v${a.version}`),
+    taskIds.map((t) => [h('div', { class: 'tn' }, t), h('div', { class: 'tchips' }, arr((b.tasks || {})[t]).map(chip)), h('div', { class: 'tchips' }, arr((a.tasks || {})[t]).map(chip))])));
+  return wrap;
+}
+
+function spotlight(s, r, ri) {
+  const box = h('div');
+  const e = r && r.episodes[0];
+  box.append(phead('Episode', 'One goal, an audited definition of done, a pilot, and a watchdog. The referee grade is hidden from every agent.'));
+  if (!e) {
+    const l = Object.values(s.live)[0];
+    box.append(h('div', { class: 'pending-box' }, h('div', null, h('div', { class: 't' }, l ? String(l.task || '').toUpperCase() : 'STARTING…'),
+      l && l.goal ? h('div', null, String(l.goal)) : null, l ? h('div', { style: 'margin-top:6px' }, String(l.stage || '')) : null)));
+    return box;
+  }
+  const best = e.attempts[e.best] || e.attempts[e.attempts.length - 1];
+  box.append(h('div', { class: 'dr-top' }, h('span', { class: 'dr-task', style: 'margin:0' }, s.kind === 'goal' && e.task === 'custom' ? 'custom goal' : String(e.task || e.key)), isNum(e.version) && h('span', { class: 'b' }, `playbook v${e.version}`), e.split === 'test' && h('span', { class: 'b warn' }, 'held-out task')));
+  box.append(h('div', { class: 'spot-goal' }, String(e.goal || '')));
+  box.append(h('div', { class: 'verdicts' },
+    h('div', { class: `vbox ${e.claimedDone ? 'ok' : 'no'}` }, h('div', { class: 'k' }, 'the team says'), h('div', { class: 'v' }, e.claimedDone ? 'DONE' : 'NOT DONE'), h('div', { class: 's' }, 'its own audited checks, run on the flight')),
+    e._graded
+      ? h('div', { class: `vbox ${e.referee.pass ? 'ok' : 'no'}` }, h('div', { class: 'k' }, 'hidden referee'), h('div', { class: 'v' }, e.referee.pass ? 'PASS' : 'FAIL'), h('div', { class: 's' }, `progress ${pct(e.referee.progress)}`))
+      : h('div', { class: 'vbox' }, h('div', { class: 'k' }, 'hidden referee'), h('div', { class: 'v', style: 'color:var(--muted)' }, 'NONE'), h('div', { class: 's' }, 'a custom goal has no hidden grader: the team\'s audited definition of done is the only judge. Watch the flight to check it.'))));
+  if (e._fd) box.append(h('div', { class: 'fd-banner' }, '⚠ FALSE DONE: the team\'s own checks passed, but the hidden referee failed the flight. The definition of done was too weak.'));
+  if (e._md) box.append(h('div', { class: 'fd-banner', style: 'color:var(--blue);border-color:rgba(124,180,255,.5);background:rgba(124,180,255,.08)' }, 'MISSED DONE: the referee passed the flight but the team did not claim it.'));
+  box.append(h('div', { class: 'timeline' }, e.attempts.map((a) => {
+    const act = a.decision && a.decision.action;
+    return h('div', { class: 'tl', role: 'button', tabindex: 0, onclick: () => openDrawer(ri, e.key, a.n), onkeydown: (ev) => { if (ev.key === 'Enter') openDrawer(ri, e.key, a.n); } },
+      h('span', { class: `ac ${actCls(act)}${a === best ? ' best' : ''}` }, a.n),
+      h('span', { class: `act ${actCls(act)}` }, act || '…'),
+      h('span', { class: 'r' }, a.decision ? String(a.decision.reason || '') : ''));
+  })));
+  const href = best && replayHref(best.replay);
+  box.append(h('div', { class: 'actions' },
+    href && h('a', { class: 'btn3d', href, target: '_blank', rel: 'noopener' }, `▶ Watch in 3D · attempt ${best.n}`),
+    h('button', { class: 'btn-ghost', onclick: () => openDrawer(ri, e.key) }, 'Open full episode →')));
+  return box;
+}
+
+// ---------- render: Done Means Done ----------
+function renderDMD(s) {
+  const all = s.rounds.flatMap((r) => r.episodes);
+  const c = { tp: 0, fd: 0, md: 0, tn: 0 };
+  const wd = Object.fromEntries(ACTION_ORDER.map((a) => [a, 0]));
+  let other = 0, loops = 0, attempts = 0;
+  const specs = new Map();
+  for (const e of all) {
+    if (!e._graded) c.ug = (c.ug || 0) + 1;
+    else if (e.claimedDone) c[e.referee.pass ? 'tp' : 'fd']++; else c[e.referee.pass ? 'md' : 'tn']++;
+    for (const a of e.attempts) {
+      attempts++;
+      const act = a.decision && a.decision.action;
+      if (act && act in wd) wd[act]++; else if (act) other++;
+      if (a.decision && a.decision.loop) loops++;
+    }
+    const sk = `${e.task}::${e.spec.code || ''}`;
+    if (!specs.has(sk)) specs.set(sk, e.spec.audits);
+  }
+  const key = JSON.stringify([c, wd, loops, s.rounds.map((r) => [r.label, r.selfDone, r.falseDone, r.episodes.length]), specs.size]);
+  if (!changed('dmd', key)) return;
+  const el = $('#dmd');
+  const claimed = c.tp + c.fd;
+  const revised = [...specs.values()].filter((au) => au.some((x) => x.verdict === 'revise')).length;
+  const reviseRounds = [...specs.values()].reduce((n, au) => n + au.filter((x) => x.verdict === 'revise').length, 0);
+  const cell = (k, n, l, tip) => h('div', { class: `cell ${k}`, tip }, h('div', { class: 'n' }, String(n)), h('div', { class: 'l' }, l));
+  const kids = [phead('Done means done', `The team grades itself with checks it wrote and audited.${!all.length || all.some((e) => e._graded) ? ' A hidden referee grades the same flight.' : ''}`)];
+  if (!all.length) {
+    kids.push(h('div', { class: 'empty' }, 'No finished episodes yet.'));
+    put(el, ...kids);
+    return;
+  }
+  const nGraded = all.length - (c.ug || 0);
+  if (!nGraded) {
+    const said = all.filter((e) => e.claimedDone).length;
+    kids.push(h('div', { class: 'held', style: 'margin-top:0' }, h('span', { class: 'n' }, `${said}/${all.length}`), h('span', { class: 'l' }, 'custom-goal episodes the team declared done')));
+    kids.push(h('div', { class: 'empty' }, 'Custom goals have no hidden referee, so there is no false-done count here: the audited definition of done is the only judge. Watch the replay to check it.'));
+  } else {
+    kids.push(h('div', { class: 'mx' },
+      h('div'), h('div', { class: 'hd' }, 'referee pass'), h('div', { class: 'hd' }, 'referee fail'),
+      h('div', { class: 'rh' }, 'team: done'),
+      cell('tp', c.tp, 'real done', 'the team claimed done and the referee agreed'),
+      cell('fd', c.fd, 'FALSE DONE', 'the team claimed done, the referee failed it: the definition of done was too weak'),
+      h('div', { class: 'rh' }, 'team: not done'),
+      cell('md', c.md, 'missed done', 'the referee passed it but the team did not claim done (too strict a spec)'),
+      cell('tn', c.tn, 'honest fail', 'the team did not claim done and the referee agreed')));
+    kids.push(h('div', { class: 'held' },
+      h('span', { class: 'n', style: `color:${claimed && c.tp === claimed ? 'var(--pass)' : c.fd ? 'var(--amber)' : 'var(--text)'}` }, claimed ? `${c.tp}/${claimed}` : '0'),
+      h('span', { class: 'l' }, claimed ? `"done" claims held up (${pct(c.tp / claimed)}) across ${plural(nGraded, 'graded episode')}` : `no done claims yet across ${plural(nGraded, 'graded episode')}`)));
+  }
+  const withClaims = s.rounds.filter((r) => r.episodes.some((e) => e._graded));
+  if (withClaims.length > 1) {
+    kids.push(h('div', { class: 'sub-h', style: 'margin-top:12px;margin-bottom:0' }, 'false-done rate by round'));
+    kids.push(h('div', { class: 'spark' }, withClaims.map((r) => {
+      const n = r.episodes.filter((e) => e._graded).length, f = r.episodes.filter((e) => e._fd).length;
+      return h('div', { class: `sb ${r.split === 'test' ? 'test' : ''}`, tip: () => tipBox(String(r.label || ''), `${f} of ${n} episodes were false dones`) }, h('i', { style: `height:${Math.round((f / n) * 100)}%` }));
+    })));
+    kids.push(h('div', { class: 'spark-l' }, h('span', null, String(withClaims[0].label || '')), h('span', null, String(withClaims[withClaims.length - 1].label || ''))));
+  }
+  kids.push(h('div', { class: 'divider', style: 'margin:16px 0 12px' }));
+  kids.push(h('div', { class: 'sub-h' }, 'Watchdog calls', h('span', { class: 'note' }, `after each of ${plural(attempts, 'attempt')} · hover for meaning`)));
+  const total = Object.values(wd).reduce((x, y) => x + y, 0) || 1;
+  kids.push(h('div', { class: 'wd-bar', 'aria-hidden': 'true' }, ACTION_ORDER.filter((a) => wd[a]).map((a) => h('i', { class: actCls(a), style: `flex:${wd[a]}` }))));
+  kids.push(h('div', { class: 'wd' }, ACTION_ORDER.map((a) => h('span', {
+    class: `wd-chip ${actCls(a)}${wd[a] ? '' : ' zero'}`, tabindex: 0,
+    tip: () => tipBox(a.toUpperCase(), ACTIONS[a].desc, `${wd[a]} of ${total} calls (${pct(wd[a] / total)})`),
+  }, h('span', { class: 'sw' }), h('span', { class: 'nm' }, a.toUpperCase()), h('span', { class: 'ct' }, String(wd[a]))))));
+  kids.push(h('div', { class: 'facts' },
+    h('div', null, h('b', null, String(loops)), ` ${loops === 1 ? 'loop' : 'loops'} caught (same failure twice → forced re-plan)`),
+    h('div', null, 'spec auditor sent back ', h('b', null, `${revised}/${specs.size}`), ` definitions of done (${plural(reviseRounds, 'revision round')})`),
+    other ? h('div', null, h('b', null, String(other)), ' other decisions') : null,
+    c.ug && nGraded ? h('div', null, h('b', null, String(c.ug)), ` custom-goal ${c.ug === 1 ? 'episode has' : 'episodes have'} no referee (not counted above)`) : null));
+  put(el, ...kids);
+}
+
+// ---------- render: rounds ----------
+function splitBadge(r) {
+  if (r.split === 'test') return h('span', { class: 'b warn' }, r._side ? `held-out · ${r._side}` : 'held-out');
+  if (r.split === 'train') return h('span', { class: 'b cool' }, 'train');
+  return r.split ? h('span', { class: 'b' }, String(r.split)) : null;
+}
+function renderRounds(s) {
+  const openKey = JSON.stringify([...S.ui.open.entries()]);
+  const liveN = Object.keys(s.live).length;
+  // finished rounds are immutable once written, so their count + labels identify them
+  const key = `${s.runId}|${s.rounds.length}|${openKey}|${liveN}|${s.status}|${JSON.stringify(s.rounds.map((r) => [r.label, r.score, r.episodes.length, r.failedTasks.length]))}`;
+  if (!changed('rounds', key)) return;
+  const el = $('#rounds');
+  const kids = [phead('Rounds', 'Newest first. Each row is one episode: the team\'s verdict against the hidden referee, and the watchdog\'s call after every attempt.', h('span', { class: 'b' }, plural(s.rounds.length, 'round')))];
+  if (s.status === 'running' && liveN) kids.push(h('div', { class: 'round ghost' }, h('span', { class: 'b acc' }, 'in progress'), `${plural(liveN, 'episode')} flying now · see Live now`));
+  if (!s.rounds.length && !(s.status === 'running' && liveN)) kids.push(h('div', { class: 'empty' }, 'No finished rounds yet.'));
+  const n = s.rounds.length;
+  for (let ri = n - 1; ri >= 0; ri--) {
+    const r = s.rounds[ri];
+    const isOpen = S.ui.open.has(ri) ? S.ui.open.get(ri) : ri === n - 1 || (n <= 3);
+    const eps = r.episodes;
+    const nT = eps.length + r.failedTasks.length;
+    const pass = eps.filter((e) => e.referee.pass === true).length;
+    const anyGraded = eps.some((e) => e._graded);
+    const self = isNum(r.selfDone) ? r.selfDone : eps.filter((e) => e.claimedDone).length;
+    const fd = isNum(r.falseDone) ? r.falseDone : eps.filter((e) => e._fd).length;
+    const att = isNum(r.attemptsUsed) ? r.attemptsUsed : eps.reduce((x, e) => x + e.attempts.length, 0);
+    const pb = s.playbooks.find((p) => p.version === r.version);
+    const art = h('div', { class: `round${isOpen ? ' open' : ''}` },
+      h('button', { class: 'rh-btn', 'aria-expanded': String(isOpen), onclick: () => { S.ui.open.set(ri, !isOpen); renderRounds(S.state); } },
+        h('span', { class: 'chev' }, '›'),
+        h('span', { class: 'lab' }, String(r.label || `round ${ri + 1}`)),
+        splitBadge(r),
+        pb && r.split === 'train' && pb.parent != null && typeof pb.accepted === 'boolean' ? h('span', { class: `b ${pb.accepted ? 'pass' : 'fail'}` }, pb.accepted ? 'kept' : 'rejected') : null,
+        h('span', { class: 'rstats' },
+          h('span', null, h('b', null, sc(r.score)), 'score'),
+          anyGraded || !eps.length ? h('span', { class: pass ? 'passv' : '' }, h('b', null, `${pass}/${nT}`), 'referee pass') : h('span', { tip: NO_REF }, 'no referee'),
+          h('span', null, h('b', null, String(self)), 'claimed done'),
+          h('span', { class: fd ? 'warnv' : '' }, h('b', null, String(fd)), 'false done'),
+          h('span', null, h('b', null, String(att)), 'attempts'))));
+    if (isOpen) {
+      art.append(h('div', { class: 'eps' }, eps.map((e) => epRow(ri, e))));
+      if (r.failedTasks.length) art.append(h('div', { class: 'failed-note' }, `episode crashed (agent error, no score): ${r.failedTasks.join(', ')}`));
+    }
+    kids.push(art);
+  }
+  put(el, ...kids);
+}
+
+function verdictTeam(e) {
+  return e.claimedDone ? h('span', { class: 'b pass' }, '✓ done') : h('span', { class: 'b' }, 'not done');
+}
+function epRow(ri, e) {
+  const best = e.attempts[e.best];
+  const href = best && replayHref(best.replay);
+  const open = () => openDrawer(ri, e.key);
+  return h('div', {
+    class: `ep${e._fd ? ' fd' : ''}`, role: 'button', tabindex: 0, 'aria-label': `Open episode ${e.task}`,
+    onclick: open, onkeydown: (ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); open(); } },
+  },
+  h('div', null,
+    h('div', { class: 'ep-id' }, String(e.task || e.key || '?'),
+      e._fd && h('span', { class: 'b warn', tip: 'the team said DONE, the hidden referee failed the flight' }, '⚠ false done'),
+      e._md && h('span', { class: 'b', style: 'color:var(--blue)', tip: 'the referee passed it but the team did not claim done' }, 'missed done')),
+    e.goal && h('div', { class: 'ep-goal' }, String(e.goal))),
+  h('div', { class: 'ep-v' },
+    h('span', { class: 'who' }, 'team'), verdictTeam(e),
+    h('span', { class: 'who' }, 'referee'),
+    h('span', { class: 'refline' }, refBadge(e.referee),
+      e._graded && !e.referee.pass && isNum(e.referee.progress) ? h('span', { class: 'bar', vars: { '--p': Math.max(0, Math.min(1, e.referee.progress)), '--c': 'var(--fail)' }, tip: `referee progress ${pct(e.referee.progress)}` }, h('i')) : null)),
+  h('div', { class: 'ep-att' }, e.attempts.length ? e.attempts.map((a, i) => attChip(a, i === e.best, (ev) => { ev.stopPropagation(); openDrawer(ri, e.key, a.n); })) : h('span', { class: 'ac a-none' }, '—')),
+  h('div', { class: 'ep-go' },
+    href && h('a', { class: 'mini3d', href, target: '_blank', rel: 'noopener', onclick: (ev) => ev.stopPropagation(), tip: `watch attempt ${best.n} (the one the team stands behind) in the real game` }, '▶ 3D'),
+    h('span', { class: 'chev', 'aria-hidden': 'true' }, '›')));
+}
+function attChip(a, isBest, onclick) {
+  const d = a.decision || {};
+  const act = d.action;
+  return h('button', {
+    class: `ac ${actCls(act)}${isBest ? ' best' : ''}`, onclick, 'aria-label': `attempt ${a.n}: ${act || 'no decision'}`,
+    tip: () => tipBox(h('span', null, `attempt ${a.n} `, h('span', { class: `act ${actCls(act)}` }, act || '?'), isBest ? h('span', { class: 'b' }, 'team’s pick') : null),
+      d.reason ? String(d.reason) : '',
+      `self-check ${a.check.pass ? 'PASS' : 'fail'} (${a.check.results.filter((r) => r.pass).length}/${a.check.results.length}) · referee ${refText(a.referee)}`,
+      a.crash ? `crash: ${a.crash}` : ''),
+  }, String(a.n));
+}
+
+// ---------- drawer ----------
+function openDrawer(ri, key, attemptN) {
+  if (!S.ui.drawer) S.ui.opener = document.activeElement;
+  S.ui.drawer = { ri, key, scrollTo: attemptN || null };
+  memo.drawer = null;
+  renderDrawer();
+}
+function closeDrawer(silent) {
+  S.ui.drawer = null;
+  memo.drawer = null;
+  $('#drawer').hidden = true;
+  $('#scrim').hidden = true;
+  document.body.classList.remove('noscroll');
+  hideTip();
+  if (!silent && S.ui.opener && S.ui.opener.isConnected) S.ui.opener.focus();
+}
+$('#scrim').addEventListener('click', () => closeDrawer());
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.ui.drawer) closeDrawer(); });
+
+function det(id, summary, content) {
+  const d = h('details', { class: 'det' }, h('summary', null, summary), h('div', { class: 'body' }, content));
+  if (S.ui.dets.has(id)) d.open = true;
+  d.addEventListener('toggle', () => { if (d.open) S.ui.dets.add(id); else S.ui.dets.delete(id); });
+  return d;
+}
+const codeBlock = (code) => h('pre', { class: 'code' }, h('code', null, String(code)));
+const fld = (label, ...content) => h('div', { class: 'fld' }, h('div', { class: 'fl' }, label), h('div', { class: 'fv' }, content));
+
+function renderDrawer() {
+  const d = S.ui.drawer;
+  const el = $('#drawer');
+  if (!d || !S.state) return;
+  const r = S.state.rounds[d.ri];
+  const e = r && r.episodes.find((x) => x.key === d.key);
+  if (!e) { closeDrawer(true); return; }
+  const key = `${d.ri}|${JSON.stringify(e)}`;
+  if (!changed('drawer', key) && !d.scrollTo) return;
+  const keepScroll = el.hidden ? 0 : el.scrollTop;
+  put(el, buildDrawer(r, e));
+  el.hidden = false;
+  $('#scrim').hidden = false;
+  document.body.classList.add('noscroll');
+  if (d.scrollTo) {
+    const target = el.querySelector(`[data-att="${Number(d.scrollTo)}"]`);
+    d.scrollTo = null;
+    if (target) requestAnimationFrame(() => target.scrollIntoView({ block: 'start' }));
+    else el.scrollTop = 0;
+  } else el.scrollTop = keepScroll;
+  const btn = el.querySelector('.dr-close');
+  if (btn && !el.contains(document.activeElement)) btn.focus({ preventScroll: true });
+}
+
+function buildDrawer(r, e) {
+  const best = e.attempts[e.best];
+  const href = best && replayHref(best.replay);
+  const head = h('div', { class: 'dr-h' },
+    h('div', { class: 'dr-top' },
+      h('span', { class: 'b' }, String(r.label || '')), splitBadge(r), isNum(e.version) && h('span', { class: 'b' }, `playbook v${e.version}`),
+      h('button', { class: 'dr-close', onclick: () => closeDrawer(), 'aria-label': 'Close' }, '×')),
+    h('div', { class: 'dr-task' }, String(e.task || e.key)),
+    e.goal && h('div', { class: 'dr-goal' }, String(e.goal)),
+    h('div', { class: 'dr-v' },
+      h('span', { class: 'who', style: 'font:700 .66rem/1 var(--f-head);letter-spacing:.16em;color:var(--dim)' }, 'TEAM'), verdictTeam(e),
+      h('span', { class: 'who', style: 'font:700 .66rem/1 var(--f-head);letter-spacing:.16em;color:var(--dim);margin-left:8px' }, 'REFEREE'),
+      refBadge(e.referee, true),
+      e._fd && h('span', { class: 'b warn' }, '⚠ false done'),
+      e._md && h('span', { class: 'b', style: 'color:var(--blue)' }, 'missed done'),
+      href && h('a', { class: 'btn3d', href, target: '_blank', rel: 'noopener', style: 'margin-left:auto' }, `▶ Watch in 3D · attempt ${best.n}`)));
+
+  const sp = e.spec;
+  const specSec = h('section', { class: 'dr-sec' },
+    h('h3', null, 'Definition of done'),
+    h('div', { class: 'note' }, 'Written by the spec agent as executable checks, probed with do-nothing and floor-it flights, then attacked by an auditor running a different model.'),
+    sp.criteria.length ? h('ol', { class: 'crit' }, sp.criteria.map((c) => h('li', null, String(c)))) : h('div', { class: 'empty' }, 'no criteria recorded'),
+    sp.audits.length ? h('div', { style: 'margin-top:12px' }, h('div', { class: 'sub-h' }, 'Audit rounds'),
+      sp.audits.map((a, i) => h('div', { class: 'audit' },
+        h('span', { class: 'rn' }, `round ${isNum(a.round) ? a.round + 1 : i + 1}`),
+        h('div', null,
+          h('span', { class: `b ${a.verdict === 'approve' ? 'pass' : 'warn'}` }, String(a.verdict || '?')),
+          isNum(a.auto) && a.auto > 0 ? h('span', { class: 'b', style: 'margin-left:6px', tip: 'issues found automatically by running the check on probe flights' }, `${a.auto} from probes`) : null,
+          arr(a.issues).length ? h('ul', null, arr(a.issues).map((x) => h('li', null, String(x)))) : null)))) : null,
+    sp.code ? det(`spec:${e.key}`, 'check(trace) source', codeBlock(sp.code)) : null);
+
+  const attSec = h('section', { class: 'dr-sec' },
+    h('h3', null, `Attempts · ${e.attempts.length}`),
+    h('div', { class: 'note' }, 'Each attempt: the pilot\'s plan and program, the team\'s self-check, the hidden referee, and the watchdog\'s call.'),
+    e.attempts.map((a, i) => attemptCard(e, a, i === e.best)));
+  return h('div', null, head, h('div', { class: 'dr-b' }, specSec, attSec));
+}
+
+function attemptCard(e, a, isBest) {
+  const d = a.decision;
+  const act = d && d.action;
+  const href = replayHref(a.replay);
+  const res = a.check.results;
+  const okN = res.filter((r) => r.pass).length;
+  const f = a.final && typeof a.final === 'object' ? a.final : null;
+  const num = (v, dgt = 1) => (isNum(v) ? v.toFixed(dgt) : '—');
+  return h('article', { class: `att${isBest ? ' best' : ''}`, 'data-att': Number(a.n) },
+    h('div', { class: 'att-h' },
+      h('span', { class: 'att-n' }, `ATTEMPT ${a.n}`), isBest && h('span', { class: 'b acc', tip: 'the attempt the team stands behind: its first self-check pass, else its best progress' }, 'team’s pick'),
+      act && h('span', { class: `act ${actCls(act)}` }, act),
+      href && h('a', { class: 'btn3d', href, target: '_blank', rel: 'noopener' }, '▶ Watch in 3D')),
+    a.plan && fld('Plan', h('div', { class: 'plan' }, String(a.plan))),
+    fld('Self-check',
+      h('div', { style: 'margin-bottom:4px' }, a.check.pass ? h('span', { class: 'b pass' }, `pass ${okN}/${res.length}`) : h('span', { class: 'b fail' }, `fail ${okN}/${res.length}`)),
+      a.check.error && h('div', { class: 'cerr' }, `check error: ${a.check.error}`),
+      res.length ? h('ul', { class: 'checks' }, res.map((r) => h('li', { class: r.pass ? 'ok' : 'no' },
+        h('span', { class: 'ic' }, r.pass ? '✓' : '✗'),
+        h('span', null, String(r.name ?? ''), r.detail != null && r.detail !== '' ? h('span', { class: 'dt' }, String(r.detail)) : null)))) : null),
+    fld('Referee', !graded(a.referee) ? h('div', { class: 'refrow' }, refBadge(a.referee), h('span', { style: 'color:var(--muted);font-size:.86rem' }, 'custom goal: no hidden grader'))
+      : h('div', { class: 'refrow' }, refBadge(a.referee),
+        h('span', { class: 'bar', vars: { '--p': isNum(a.referee.progress) ? Math.max(0, Math.min(1, a.referee.progress)) : 0, '--c': a.referee.pass ? 'var(--pass)' : 'var(--fail)' } }, h('i')),
+        h('span', { style: 'font:600 .9rem/1 var(--f-head)' }, pct(a.referee.progress)),
+        !a.referee.pass && a.check.pass ? h('span', { class: 'b warn' }, 'self-check passed anyway') : null)),
+    a.crash && fld('Crash', h('span', { class: 'crash' }, String(a.crash))),
+    a.controllerError && fld('Program error', h('span', { class: 'cerr' }, `${isNum(a.controllerError.t) ? `t=${a.controllerError.t}s: ` : ''}${String(a.controllerError.message ?? '')}`)),
+    d && fld('Watchdog', h('div', { class: `dec ${actCls(act)}` },
+      h('div', null, h('span', { class: `act ${actCls(act)}`, tip: ACTIONS[act] ? ACTIONS[act].desc : null }, act || '?'),
+        d.loop ? h('span', { class: 'b purple', style: 'margin-left:6px' }, 'loop detected') : null,
+        isNum(d.baseIndex) ? h('span', { class: 'b warn', style: 'margin-left:6px' }, `revert to attempt ${d.baseIndex + 1}`) : null,
+        d.ping ? h('span', { class: 'b', style: 'margin-left:6px;color:var(--orange)' }, 'pinged a human') : null),
+      d.reason && h('div', { class: 'rs' }, String(d.reason)),
+      d.message && h('div', { class: 'msg' }, h('b', null, 'to the pilot: '), String(d.message)))),
+    f && fld('Final state', h('div', { class: 'fin' },
+      h('span', null, 'speed ', h('b', null, num(f.speed)), ' m/s'),
+      h('span', null, 'alt ', h('b', null, num(f.y)), ' m'),
+      isNum(a.maxY) && h('span', null, 'max alt ', h('b', null, num(a.maxY)), ' m'),
+      h('span', null, 'upright ', h('b', null, num(f.upY, 2))),
+      isNum(f.wheels) && h('span', null, 'wheels ', h('b', null, `${f.wheels}/4`)),
+      f.airborne != null && h('span', null, h('b', null, f.airborne ? 'airborne' : 'grounded')),
+      f.surface && h('span', null, 'on ', h('b', null, String(f.surface))),
+      isNum(f.gas) && h('span', null, 'fuel ', h('b', null, pct(f.gas))),
+      h('span', null, 'pos ', h('b', null, `${num(f.x)}, ${num(f.y)}, ${num(f.z)}`)))),
+    a.code ? det(`code:${e.key}:${a.n}`, 'Pilot program', codeBlock(a.code)) : null);
+}
+
+// ---------- render: log ----------
+function renderLog(s) {
+  const lines = s.log.slice(-80);
+  const last = lines[lines.length - 1];
+  if (!changed('log', `${s.log.length}|${last ? last.t + last.msg : ''}`)) return;
+  const el = $('#log');
+  const old = $('#logbox');
+  if (old) S.ui.logStick = old.scrollTop + old.clientHeight >= old.scrollHeight - 24;
+  const box = h('div', { class: 'logbox', id: 'logbox', tabindex: 0, 'aria-label': 'Run log' }, lines.map((l) => {
+    const msg = String(l.msg ?? '');
+    const m = /^\[([^\]]{1,80})\]\s*([\s\S]*)$/.exec(msg);
+    return h('div', { class: `ll k-${cls(l.kind)}` },
+      h('span', { class: 'lt' }, hms(l.t)),
+      h('span', { class: 'lk' }, String(l.kind || '').toUpperCase()),
+      h('span', { class: 'lm' }, m ? [h('span', { class: 'lkey' }, `[${m[1]}]`), ' ', m[2]] : msg));
+  }));
+  const jump = h('button', { class: 'jump', onclick: () => { S.ui.logStick = true; box.scrollTop = box.scrollHeight; } }, 'jump to newest ↓');
+  put(el, 
+    phead('Log', s.status === 'running' ? 'tailing the run as it happens' : 'last lines of the run', h('span', { class: 'b' }, `${s.log.length} lines`)),
+    box,
+    h('div', { class: 'logfoot' }, h('span', null, `showing the last ${lines.length}`), jump));
+  box.addEventListener('scroll', () => { S.ui.logStick = box.scrollTop + box.clientHeight >= box.scrollHeight - 24; }, { passive: true });
+  if (S.ui.logStick) box.scrollTop = box.scrollHeight;
+}
+
+// ---------- render: playbooks ----------
+function pbBadges(p, best) {
+  const out = [];
+  if (p.parent == null && p.version === 0) out.push(h('span', { class: 'b' }, 'seed'));
+  else if (p.accepted === true && isNum(p.score)) out.push(h('span', { class: 'b pass' }, 'kept'));
+  else if (p.accepted === false) out.push(h('span', { class: 'b fail' }, 'rejected'));
+  if (p.version === best) out.push(h('span', { class: 'b acc' }, 'best'));
+  return out;
+}
+function selectPlaybook(v, scroll) {
+  S.ui.pb = v;
+  memo.pb = null;
+  renderPB(S.state);
+  if (scroll) $('#pb').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function diffInsights(parent, child) {
+  const P = new Map(parent.map((i) => [i.id, i.text]));
+  const ptexts = new Set(parent.map((i) => i.text));
+  const ctexts = new Set(child.map((i) => i.text));
+  const C = new Set(child.map((i) => i.id));
+  const out = [];
+  for (const i of child) {
+    if (P.has(i.id)) {
+      if (P.get(i.id) === i.text) out.push({ st: 'same', ...i });
+      else { out.push({ st: 'del', id: i.id, text: P.get(i.id) }); out.push({ st: 'add', ...i }); }
+    } else if (ptexts.has(i.text)) out.push({ st: 'same', ...i });
+    else out.push({ st: 'add', ...i });
+  }
+  for (const i of parent) if (!C.has(i.id) && !ctexts.has(i.text)) out.push({ st: 'del', ...i });
+  return out;
+}
+function renderPB(s) {
+  const el = $('#pb');
+  const pbs = [...s.playbooks].sort((a, b) => a.version - b.version);
+  const best = bestVersion(s);
+  let sel = S.ui.pb;
+  if (sel == null || !pbs.some((p) => p.version === sel)) sel = isNum(best) && pbs.some((p) => p.version === best) ? best : pbs.length ? pbs[pbs.length - 1].version : null;
+  if (!changed('pb', JSON.stringify([s.playbooks, sel, best, s.runId]))) return;
+  const kids = [phead('Playbook explorer', 'What the team has learned, version by version: the coach\'s analysis, its insights (diffed against the parent), reusable skill code, and guidance for the pilot and spec writer.')];
+  if (!pbs.length) {
+    kids.push(h('div', { class: 'empty' }, 'No playbook recorded yet.'));
+    put(el, ...kids);
+    return;
+  }
+  const p = pbs.find((x) => x.version === sel);
+  const parent = p.parent != null ? pbs.find((x) => x.version === p.parent) : null;
+  const list = h('div', { class: 'pbl', role: 'group', 'aria-label': 'Playbook versions' }, pbs.map((x) => {
+    const d = isNum(x.score) && isNum(x.baseline) ? x.score - x.baseline : null;
+    return h('button', { class: `pbi${x.version === sel ? ' sel' : ''}`, 'aria-pressed': String(x.version === sel), onclick: () => selectPlaybook(x.version) },
+      h('span', { class: 'pbi-top' }, h('span', { class: 'pbi-v' }, `v${x.version}`), pbBadges(x, best),
+        isNum(x.score) ? h('span', { style: 'margin-left:auto;font:600 .9rem/1 var(--f-mono)' }, sc(x.score)) : null),
+      h('span', { class: 'pbi-s' }, d != null ? `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(3)} vs v${x.parent} · ` : '', x.changelog[0] || ''));
+  }));
+  const diff = parent ? diffInsights(parent.insights, p.insights) : p.insights.map((i) => ({ st: parent === null && p.parent != null ? 'same' : 'add', ...i }));
+  const adds = diff.filter((x) => x.st === 'add').length, dels = diff.filter((x) => x.st === 'del').length;
+  const guide = (label, key) => {
+    const v = String(p[key] || '');
+    const ch = parent && String(parent[key] || '') !== v;
+    return h('div', { class: 'sec' }, h('div', { class: 'sub-h' }, label, ch ? h('span', { class: 'b pass' }, 'changed') : null),
+      h('div', { class: `prose${v.trim() ? '' : ' none'}` }, v.trim() ? v : 'none'));
+  };
+  const skillsChanged = parent && String(parent.skills || '') !== String(p.skills || '');
+  const d = isNum(p.score) && isNum(p.baseline) ? p.score - p.baseline : null;
+  const detail = h('div', { class: 'pbd' },
+    h('div', { class: 'pbd-h' }, h('span', { class: 'v' }, `v${p.version}`), pbBadges(p, best),
+      h('a', { class: 'btn-ghost', href: `${RUNS}/${encodeURIComponent(s.runId || S.runId)}/playbooks/v${Number(p.version)}.json`, target: '_blank', rel: 'noopener', style: 'margin-left:auto;padding:6px 10px;font-size:.74rem' }, 'raw json ↗')),
+    h('div', { class: 'pbd-meta' },
+      h('span', null, 'parent ', h('b', null, p.parent == null ? 'none (seed)' : `v${p.parent}`)),
+      isNum(p.score) ? h('span', null, 'train score ', h('b', null, sc(p.score))) : null,
+      isNum(p.baseline) ? h('span', null, 'baseline ', h('b', null, sc(p.baseline)), d != null ? h('span', { class: `d ${d > 0 ? 'good' : d < 0 ? 'bad' : 'same'}`, style: 'margin-left:6px;font-weight:600' }, `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(3)}`) : null) : null,
+      p.accepted === false ? h('span', null, 'needed > baseline + 0.02 to be kept') : null),
+    h('div', { class: 'sec', style: 'margin-top:0' }, h('div', { class: 'sub-h' }, 'Coach analysis'), h('div', { class: `prose${String(p.analysis || '').trim() ? '' : ' none'}` }, String(p.analysis || '').trim() || 'none')),
+    h('div', { class: 'sec' }, h('div', { class: 'sub-h' }, 'Changelog'), p.changelog.length ? h('ul', { class: 'clog' }, p.changelog.map((c) => h('li', null, c))) : h('div', { class: 'prose none' }, 'none')),
+    h('div', { class: 'sec' },
+      h('div', { class: 'sub-h' }, `Insights · ${p.insights.length}`, parent ? h('span', { class: 'note' }, `vs v${parent.version}: `, h('span', { style: 'color:var(--pass)' }, `+${adds} added`), ' · ', h('span', { style: 'color:var(--fail)' }, `−${dels} removed`)) : p.parent != null ? h('span', { class: 'note' }, `parent v${p.parent} is not in this run`) : null),
+      diff.length ? h('div', { class: 'ins' }, diff.map((x) => h('div', { class: `in ${x.st}` }, h('span', { class: 'g' }, x.st === 'add' ? '+' : x.st === 'del' ? '−' : '·'), h('span', null, h('span', { class: 'id' }, x.id), h('span', { class: 'tx' }, x.text))))) : h('div', { class: 'prose none' }, 'no insights yet')),
+    h('div', { class: 'two' }, guide('Pilot guidance', 'pilotGuidance'), guide('Spec guidance', 'specGuidance')),
+    h('div', { class: 'sec' }, h('div', { class: 'sub-h' }, 'Skills', h('span', { class: 'note' }, 'helper functions every pilot program can call'), skillsChanged ? h('span', { class: 'b pass' }, 'changed') : null),
+      String(p.skills || '').trim() ? det(`skills:${p.version}`, `skills.js · ${String(p.skills).split('\n').length} lines`, codeBlock(p.skills)) : h('div', { class: 'prose none' }, 'none')),
+    p.experiments.length || p.skillTestResults.length ? h('div', { class: 'two' },
+      h('div', { class: 'sec' }, h('div', { class: 'sub-h' }, `Lab experiments · ${p.experiments.length}`, h('span', { class: 'note' }, 'measured in the simulator before the rewrite')),
+        p.experiments.length ? h('ul', { class: 'clog' }, p.experiments.map((x) => {
+          const href = replayHref(x.replay);
+          return h('li', null, h('span', { class: `b ${x.ok ? 'pass' : 'fail'}`, style: 'margin-right:6px' }, x.ok ? 'ran' : 'failed'), String(x.question || x.id || ''),
+            href ? h('a', { href, target: '_blank', rel: 'noopener', style: 'margin-left:8px' }, '▶ 3D') : null);
+        })) : h('div', { class: 'prose none' }, 'none')),
+      h('div', { class: 'sec' }, h('div', { class: 'sub-h' }, `Skill test flights · ${p.skillTestResults.filter((t) => t.pass).length}/${p.skillTestResults.length} pass`, p.fixRound ? h('span', { class: 'note' }, 'after one fix round') : null),
+        p.skillTestResults.length ? h('ul', { class: 'clog' }, p.skillTestResults.map((t) => h('li', null,
+          h('span', { class: `b ${t.pass ? 'pass' : 'fail'}`, style: 'margin-right:6px' }, t.pass ? '✓ pass' : '✗ fail'), String(t.name || ''),
+          !t.pass && (t.error || arr(t.results).find((r) => r && !r.pass)) ? h('div', { class: 'note', style: 'margin-top:2px' }, String(t.error || arr(t.results).filter((r) => r && !r.pass).map((r) => `${r.name}: ${r.detail || ''}`).join('; ')).slice(0, 220)) : null))) : h('div', { class: 'prose none' }, 'none'))) : null);
+  kids.push(h('div', { class: 'pbw' }, list, detail));
+  put(el, ...kids);
+}
+
+// ---------- top-level render ----------
+function render() {
+  const s = S.state;
+  if (!s) {
+    put($('#hdrStatus'), h('span', { class: 'pill other' }, h('span', { class: 'dot' }), 'LOADING'));
+    put($('#ledger'));
+    put($('#hero'), h('div', { class: 'boot' }, S.runId ? `Loading ${S.runId}…` : 'Waiting for a run… start one with node school/cli.js evolve'));
+    for (const id of ['live', 'dmd', 'rounds', 'log', 'pb']) put($(`#${id}`));
+    $('#pings').hidden = true;
+    return;
+  }
+  renderHeader(s);
+  renderPings(s);
+  renderLive(s);
+  renderHero(s);
+  renderDMD(s);
+  renderRounds(s);
+  renderLog(s);
+  renderPB(s);
+  if (S.ui.drawer) renderDrawer();
+  if (tipOwner && !tipOwner.isConnected) hideTip();
+  renderConn();
+}
+
+// clocks: elapsed, live "updated" stamps, poll age
+setInterval(() => {
+  const el = $('#elapsed');
+  if (el && el.dataset.start && !el.dataset.end) el.textContent = clock(Date.now() - Number(el.dataset.start));
+  for (const n of document.querySelectorAll('[data-upd]')) n.textContent = ago(Date.now() - Number(n.dataset.upd));
+  if (S.state && S.state.status === 'running') renderConn();
+}, 1000);
+
+let resizeT = null;
+addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => { if (S.state) { memo.hero = null; renderHero(S.state); } }, 150);
+});
+
+render();
+refreshIndex();
+tick();
+</script>
+</body>
+</html>

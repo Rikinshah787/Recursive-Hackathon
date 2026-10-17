@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stunt School card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #07080d; --fg: #eef0f6; --dim: #9aa0b4; --accent: #ff2d55; --pass: #5dff9b; --lab: #7fd4ff; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: Inter, system-ui, sans-serif; }
+  body { display: grid; place-items: center; overflow: hidden; background: var(--bg); }
+  /* slow drifting glow: keeps the page repainting so screen capture always gets frames */
+  body::before { content: ''; position: fixed; inset: -20%; z-index: -1;
+    background: radial-gradient(900px 520px at 50% 100%, rgba(255,45,85,.24), transparent 62%);
+    animation: drift 9s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translate3d(-4%, 2%, 0) scale(1); } to { transform: translate3d(4%, -2%, 0) scale(1.08); } }
+  .card { width: min(1100px, 90vw); }
+  .kicker { font: 700 15px/1 'Chakra Petch', sans-serif; letter-spacing: .3em; color: var(--accent); text-transform: uppercase; }
+  h1 { font: 700 clamp(40px, 7vw, 92px)/1.02 'Chakra Petch', sans-serif; margin: 14px 0 0; letter-spacing: .02em; }
+  h1 em { color: var(--accent); font-style: normal; }
+  .sub { margin-top: 18px; font-size: clamp(18px, 2.2vw, 28px); color: var(--dim); line-height: 1.4; }
+  ul { margin: 28px 0 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+  li { font-size: clamp(16px, 1.9vw, 24px); line-height: 1.35; padding-left: 28px; position: relative; opacity: 0; transform: translateY(8px); animation: in .5s forwards; }
+  li::before { content: '▸'; position: absolute; left: 0; color: var(--accent); }
+  li b { color: var(--fg); }
+  li span { color: var(--dim); }
+  .foot { margin-top: 34px; font-size: 15px; color: var(--dim); letter-spacing: .04em; }
+  h1, .sub, .kicker { animation: in .6s both; }
+  @keyframes in { to { opacity: 1; transform: none; } from { opacity: 0; transform: translateY(8px); } }
+</style>
+</head>
+<body>
+<div class="card" id="card"></div>
+<script>
+  // ?k=kicker&t=title (use *word* for the accent)&s=subtitle&b=bullet|bullet&f=footer
+  const q = new URLSearchParams(location.search);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const card = document.getElementById('card');
+  if (q.get('k')) card.append(el('div', 'kicker', q.get('k')));
+  if (q.get('t')) {
+    const h = el('h1');
+    q.get('t').split(/(\*[^*]+\*)/).forEach((part) => {
+      if (/^\*.*\*$/.test(part)) h.append(el('em', null, part.slice(1, -1)));
+      else h.append(document.createTextNode(part));
+    });
+    card.append(h);
+  }
+  if (q.get('s')) card.append(el('div', 'sub', q.get('s')));
+  if (q.get('b')) {
+    const ul = el('ul');
+    q.get('b').split('|').forEach((b, i) => {
+      const li = el('li');
+      li.style.animationDelay = `${0.5 + i * 0.45}s`;
+      const [head, ...rest] = b.split('::');
+      li.append(el('b', null, head));
+      if (rest.length) li.append(el('span', null, ` ${rest.join('::')}`));
+      ul.append(li);
+    });
+    card.append(ul);
+  }
+  if (q.get('f')) card.append(el('div', 'foot', q.get('f')));
+  // main-thread repaint every frame (screen capture only emits frames for real repaints)
+  const glow = document.createElement('div');
+  glow.style.cssText = 'position:fixed;left:0;right:0;bottom:-30vh;height:70vh;z-index:-1;pointer-events:none;background:radial-gradient(60% 60% at 50% 60%, rgba(255,45,85,.20), transparent 70%)';
+  document.body.append(glow);
+  const t0 = performance.now();
+  (function tick(now) {
+    const t = (now - t0) / 1000;
+    glow.style.left = `${Math.sin(t * 0.6) * 4}vw`;
+    glow.style.opacity = String(0.85 + Math.sin(t * 1.3) * 0.15);
+    requestAnimationFrame(tick);
+  })(t0);
+</script>
+</body>
+</html>

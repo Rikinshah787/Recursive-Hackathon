@@ -19,8 +19,16 @@ import { Game, LEVELS, loadProgress, isUnlocked } from './game.js';
 import { Online } from './online.js';
 import { renderLevels, renderLeaderboard, renderStars, renderAudience, bindBoardTabs, setSubmitStatus } from './menus.js';
 import { ClipRecorder } from './recorder.js';
+import { ReplayDriver, replayBanner, LiveFeed } from './replay.js';
 import { makeSmokeTexture, makeGlowTexture, makeBlobShadowTexture } from './textures.js';
 import { rng, clamp, damp, formatViews } from './util.js';
+
+// Stunt School: ?replay=<url> re-flies one agent flight; ?live follows the newest run and flies each
+// attempt as the agents finish it. Neither mode connects to the online services.
+const PARAMS = new URLSearchParams(location.search);
+const REPLAY_SRC = PARAMS.get('replay');
+const LIVE = PARAMS.has('live');
+let replay = null, replayTime = null, liveFeed = null;
 
 const QUALITY = {
   ultra: { pr: 2, reflect: 0.6, shadow: 4096, samples: 4, bloom: 1 },
@@ -358,7 +366,7 @@ online.onFeed((f) => {
     if (!screens.results.classList.contains('hidden') && f.level === lastFinishedMode) loadResultsBoard(lastFinishedMode);
   }, 400);
 });
-online.connect();
+if (!REPLAY_SRC && !LIVE) online.connect();
 online.setStatus({ playing: false, level: null });
 
 async function submitResult() {
@@ -621,7 +629,8 @@ vehicle.reset(new THREE.Vector3(LAYOUT.spawnStage.x, 0, LAYOUT.spawnStage.z), 0.
 function frame() {
   requestAnimationFrame(frame);
   const rawDt = clock.getDelta();
-  const dt = Math.min(rawDt, 1 / 20);
+  // replays keep real time even when the renderer is slow (headless capture); play keeps the 1/20 s cap
+  const dt = Math.min(rawDt, replay ? 0.2 : 1 / 20);
   elapsed += dt;
   const inp = input.poll(dt);
 
@@ -681,7 +690,20 @@ function frame() {
       }
     } else trickQueue = null;
     vehicle.lastThrottle = ctl.throttle;
-    vehicle.step(ctl, simDt);
+    if (replay && game.state === 'play') {
+      if (!replay.step(simDt)) {
+        replay.endTimer += dt;
+        if (replay.endTimer > 3 && !replay.advancing) {
+          // live: move on to the agents' next flight; otherwise loop this one
+          if (liveFeed) {
+            replay.advancing = true;
+            const cur = replay;
+            liveFeed.next().then((started) => { if (!started && replay === cur) { cur.advancing = false; cur.restart(); } });
+          } else replay.restart();
+        }
+      }
+      if (replayTime) replayTime(`t = ${replay.time.toFixed(1)} s${replay.done ? ' · end of flight (looping)' : ''}`);
+    } else vehicle.step(ctl, simDt);
     game.update(simDt, inp);
     syncCar(simDt, elapsed);
     emitEffects(simDt);
@@ -729,7 +751,7 @@ function frame() {
 
   // adaptive quality: step down if we can't hold ~40fps
   frameAvg += (rawDt - frameAvg) * 0.05;
-  if (!paused && game.state === 'play' && frameAvg > 1 / 38) {
+  if (!paused && !replay && game.state === 'play' && frameAvg > 1 / 38) {
     slowTime += rawDt;
     if (slowTime > 4) {
       slowTime = 0;
@@ -745,5 +767,34 @@ function frame() {
 document.getElementById('loading').textContent = 'Ready';
 frame();
 
+if (REPLAY_SRC || LIVE) {
+  // crashes are part of what we are showing: call them out, never respawn mid-replay
+  game.crash = (reason) => hud.trick(reason || 'CRASHED', '', 'bad');
+  game.fail = (reason) => hud.trick(reason || 'FAILED', '', 'bad');
+  const play = (data) => {
+    replay = new ReplayDriver(vehicle, data);
+    game.prevPos.copy(vehicle.pos);
+    game.resetAir();
+    smoke.clear();
+    rig.snap = true;
+    hud.setHelp(false);
+    replayTime = replayBanner(data.meta || { task: data.task }, { live: LIVE });
+  };
+  startMode('free');
+  setTimeout(() => {
+    if (LIVE) {
+      replayBanner(null);
+      liveFeed = new LiveFeed(play);
+    } else {
+      fetch(REPLAY_SRC)
+        .then((r) => r.json())
+        .then(play)
+        .catch((err) => {
+          replayBanner({ goal: `Replay failed to load: ${err.message}` });
+        });
+    }
+  }, 520);
+}
+
 // expose for debugging in the console
-window.__game = { game, vehicle, arena, stunts, world, rig, camera, renderer, scene, car, smoke, haze, online, input, post: () => ({ composer, bloomPass, gradePass }) };
+window.__game = { replay: () => replay, game, vehicle, arena, stunts, world, rig, camera, renderer, scene, car, smoke, haze, online, input, post: () => ({ composer, bloomPass, gradePass }) };
