@@ -1,5 +1,7 @@
 # Stunt School: AI agents that teach themselves to fly
 
+The game is real not any video you can checkout and try here - https://rikinshah787.github.io/Roadstar/
+
 **Repo:** https://github.com/Rikinshah787/Recursive-Hackathon
 
 Built on **October 17, 2026** at the Crusoe × Cerebral Valley **Recursive Agents** hackathon.
